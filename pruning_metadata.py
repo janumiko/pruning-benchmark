@@ -7,5 +7,6 @@ class PruningMetadata:
     total_pruned: float
     pruning_step: float
     finetune_epochs: int
+    total_epochs: int
     method: prune.BasePruningMethod
     early_stopping: bool

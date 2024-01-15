@@ -2,10 +2,8 @@ from torch import nn
 from torch.nn import functional as F
 
 # training constants
-BATCH_SIZE: int = 32
-LEARNING_RATE: float = 0.01
-EPOCHS: int = 50
-MOMENTUM: float = 0.9
+BATCH_SIZE: int = 128
+EPOCHS: int = 20
 
 
 # Define a simple CNN model
@@ -13,13 +11,13 @@ class LeNet(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv1 = nn.Conv2d(
-            1, 6, kernel_size=5, stride=1, padding=2
+            3, 6, kernel_size=5, stride=1, padding=2
         )  # 28*28->32*32-->28*28
         self.pool1 = nn.AvgPool2d(kernel_size=2, stride=2)
         self.conv2 = nn.Conv2d(6, 16, kernel_size=5, stride=1)
         self.pool2 = nn.AvgPool2d(kernel_size=2, stride=2)
         self.flatten1 = nn.Flatten()
-        self.fc1 = nn.Linear(16 * 5 * 5, 120)  # 5x5 image dimension
+        self.fc1 = nn.Linear(24 * 24, 120)  # cifar
         self.fc2 = nn.Linear(120, 84)
         self.fc3 = nn.Linear(84, 10)
 
