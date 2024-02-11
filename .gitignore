@@ -1,0 +1,9 @@
+notes
+.vscode
+pycache
+data
+__pycache__
+models
+datasets
+outputs
+wandb
