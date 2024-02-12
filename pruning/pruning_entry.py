@@ -1,6 +1,7 @@
 import hydra
 import torch
 import torch.nn.utils.prune as prune
+from pathlib import Path
 from omegaconf import DictConfig, OmegaConf
 from architecture.dataloaders import get_dataloaders
 from architecture.construct_model import construct_model
@@ -26,7 +27,7 @@ def main(cfg: DictConfig) -> None:
     pruning_amount = int(
         round(
             utility.pruning.calculate_parameters_amount(pruning_parameters)
-            * cfg.pruning.rate
+            * cfg.pruning.iteration_rate
         )
     )
 
@@ -53,6 +54,10 @@ def main(cfg: DictConfig) -> None:
     )
 
     print(f"Test accuracy: {test_accuracy:.2f}%")
+
+    # Save the model to the Hydra output directory
+    output_dir = Path(hydra.core.hydra_config.HydraConfig.get().runtime.output_dir)
+    torch.save(pruned_model.state_dict(), output_dir / f"{cfg.model.name}.pth")
 
 
 if __name__ == "__main__":

@@ -15,13 +15,16 @@ def get_cifar10(cfg: DictConfig) -> tuple[Dataset, Dataset, Dataset]:
     )
 
     train_dataset = datasets.CIFAR10(
-        root=cfg.dataset.path, train=True, download=True, transform=normalize_tensor
+        root=cfg.dataset.path,
+        train=True,
+        download=cfg.dataset.download,
+        transform=normalize_tensor,
     )
     train_dataset, validate_dataset = random_split(train_dataset, [0.8, 0.2])
     test_dataset = datasets.CIFAR10(
         root=cfg.dataset.path,
         train=False,
-        download=True,
+        download=cfg.dataset.download,
         transform=normalize_tensor,
     )
 

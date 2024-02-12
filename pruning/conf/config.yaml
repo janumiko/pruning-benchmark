@@ -3,9 +3,9 @@ defaults:
   - optimizer: adamw
 
 pruning:
-  rate: 0.05
-  iterations: 10
-  finetune_epochs: 1
+  iteration_rate: ???
+  iterations: ???
+  finetune_epochs: ???
   batch_size: 64
 
 model:
