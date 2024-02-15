@@ -1,0 +1,2 @@
+name: resnet50
+path: models/resnet50_cifar10.pth

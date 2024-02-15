@@ -1,0 +1,2 @@
+name: lenet
+path: models/lenet_cifar10.pth

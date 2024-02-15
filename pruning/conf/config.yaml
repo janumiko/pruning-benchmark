@@ -1,5 +1,6 @@
 defaults:
   - dataset: cifar10
+  - model: ???
   - optimizer: adamw
 
 pruning:
@@ -7,10 +8,6 @@ pruning:
   iterations: ???
   finetune_epochs: ???
   batch_size: 64
-
-model:
-  name: LeNet
-  path: models/LeNet_cifar10.pth
 
 wandb:
   logging: False

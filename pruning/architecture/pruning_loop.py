@@ -39,6 +39,18 @@ def prune_model(
         nn.Module: Pruned model.
     """
 
+    valid_loss, valid_accuracy = utility.training.validate(
+        module=model,
+        valid_dl=valid_dl,
+        loss_function=loss_fn,
+        device=device,
+    )
+
+    print(
+        f"Initial validation loss: {valid_loss:.4f}, "
+        f"validation accuracy: {valid_accuracy:.2f}%)"
+    )
+
     for iteration in range(iterations):
         prune.global_unstructured(
             parameters_to_prune,
