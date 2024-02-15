@@ -28,8 +28,7 @@ def calculate_total_sparsity(
                 total_weights += float(param.nelement())
                 total_zero_weights += float(torch.sum(param == 0))
 
-    sparsity = 100.0 * total_zero_weights / total_weights
-    return sparsity
+    return total_zero_weights / total_weights
 
 
 def calculate_parameters_amount(modules: Iterable[tuple[nn.Module, str]]) -> int:

@@ -11,3 +11,7 @@ pruning:
 model:
   name: LeNet
   path: models/LeNet_cifar10.pth
+
+wandb:
+  logging: False
+  project: pruning

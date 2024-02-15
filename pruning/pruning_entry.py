@@ -7,6 +7,8 @@ from architecture.dataloaders import get_dataloaders
 from architecture.construct_model import construct_model
 from architecture.pruning_loop import prune_model
 import architecture.utility as utility
+import datetime
+import wandb
 
 
 @hydra.main(config_path="conf", config_name="config", version_base="1.2")
@@ -31,6 +33,10 @@ def main(cfg: DictConfig) -> None:
         )
     )
 
+    wandb_run = None
+    if cfg.wandb.logging:
+        wandb_run = wandb.init(project=cfg.wandb.project)
+
     pruned_model = prune_model(
         model=model,
         method=prune.L1Unstructured,
@@ -43,7 +49,7 @@ def main(cfg: DictConfig) -> None:
         train_dl=train_dl,
         valid_dl=valid_dl,
         device=device,
-        logging=True,
+        wandb_run=wandb_run,
     )
 
     test_loss, test_accuracy = utility.training.validate(
@@ -57,7 +63,11 @@ def main(cfg: DictConfig) -> None:
 
     # Save the model to the Hydra output directory
     output_dir = Path(hydra.core.hydra_config.HydraConfig.get().runtime.output_dir)
-    torch.save(pruned_model.state_dict(), output_dir / f"{cfg.model.name}.pth")
+
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    torch.save(
+        pruned_model.state_dict(), output_dir / f"{cfg.model.name}_{current_date}.pth"
+    )
 
 
 if __name__ == "__main__":
