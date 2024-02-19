@@ -7,19 +7,20 @@ def get_parameters_to_prune(model: nn.Module) -> list[nn.Parameter]:
     return [
         (module, "weight")
         for module in model.modules()
-        if isinstance(module, nn.Conv2d | nn.Linear)
+        if any(param.requires_grad for param in module.parameters())
+        and len(list(module.children())) == 0
     ]
 
 
 def calculate_total_sparsity(
-    module: nn.Module, parameters_to_prune: Iterable[tuple[nn.Module, str]]
+    model: nn.Module, parameters_to_prune: Iterable[tuple[nn.Module, str]]
 ) -> float:
     total_weights = 0
     total_zero_weights = 0
 
     pruned_parameters: set[tuple[nn.Module, str]] = set(parameters_to_prune)
 
-    for _, module in module.named_children():
+    for module in model.modules():
         for param_name, param in module.named_parameters():
             if (module, param_name) not in pruned_parameters:
                 continue
@@ -42,9 +43,8 @@ def calculate_parameters_amount(modules: Iterable[tuple[nn.Module, str]]) -> int
     """
 
     total_parameters = 0
-    for module, parameter in modules:
-        for param_name, param in module.named_parameters():
-            if param_name == parameter:
-                total_parameters += param.nelement()
+    for module, _ in modules:
+        for param in module.parameters():
+            total_parameters += param.nelement()
 
     return total_parameters

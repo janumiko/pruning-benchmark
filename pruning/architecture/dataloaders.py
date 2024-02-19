@@ -14,19 +14,29 @@ def get_cifar10(cfg: DictConfig) -> tuple[Dataset, Dataset, Dataset]:
         ]
     )
 
+    train_norm = transforms.Compose(
+        [
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
+            normalize_tensor,
+        ]
+    )
+
     train_dataset = datasets.CIFAR10(
         root=cfg.dataset.path,
         train=True,
         download=cfg.dataset.download,
-        transform=normalize_tensor,
+        transform=train_norm,
     )
-    train_dataset, validate_dataset = random_split(train_dataset, [0.8, 0.2])
+
     test_dataset = datasets.CIFAR10(
         root=cfg.dataset.path,
         train=False,
         download=cfg.dataset.download,
         transform=normalize_tensor,
     )
+
+    validate_dataset, test_dataset = random_split(test_dataset, [0.8, 0.2])
 
     return train_dataset, validate_dataset, test_dataset
 
