@@ -18,10 +18,10 @@ You can configure the code from CLI, or modyfy the configs in `conf` directory. 
 
 To run a single pruning you need to provide `pruning.iterations`, `pruning.finetune_epochs` and `pruning.iteration_rate` parameters. For example:
 ```bash
-python pruning_entry.py pruning.iterations=3 pruning.finetune_epochs=1 pruning.iteration_rate=0.02
+python pruning_entry.py model=resnet18_cifar10 pruning.iteration_rate=0.8 pruning.iterations=1 pruning.finetune_epochs=20
 ```
 
 You can do a multi-run by using following hydra syntax:
 ```bash
-python pruning_entry.py --multirun pruning.iterations=1,2,3 pruning.finetune_epochs=1 pruning.iteration_rate=0.01,0.02
+python pruning_entry.py --multi-run model=resnet18_cifar10 pruning.iteration_rate=0.8 pruning.iterations=1,2,3 pruning.finetune_epochs=20,30
 ```
