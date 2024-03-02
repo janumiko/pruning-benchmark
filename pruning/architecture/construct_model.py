@@ -29,7 +29,7 @@ def construct_model(cfg: DictConfig) -> nn.Module:
             return construct_lenet(cfg.model.path)
         case ("resnet50", "cifar10"):
             return construct_resnet50(cfg.model.path)
-        case ("resnet18", "cifar10"):
+        case ("resnet18", "cifar100"):
             return construct_resnet18(cfg.model.path)
         case _:
             raise ValueError(

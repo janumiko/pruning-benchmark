@@ -3,6 +3,9 @@ import torch
 import torch.nn.utils.prune as prune
 from torch import nn
 import architecture.utility as utility
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def prune_model(
@@ -46,7 +49,7 @@ def prune_model(
         device=device,
     )
 
-    print(
+    logger.info(
         f"Initial validation loss: {valid_loss:.4f}, "
         f"validation accuracy: {valid_accuracy:.2f}%)"
     )
@@ -58,7 +61,7 @@ def prune_model(
             amount=pruning_amount,
         )
 
-        print(f"Pruning iteration {iteration + 1}/{iterations}")
+        logger.info(f"Pruning iteration {iteration + 1}/{iterations}")
         for epoch in range(finetune_epochs):
             utility.training.train_epoch(
                 module=model,
@@ -75,7 +78,7 @@ def prune_model(
                 device=device,
             )
 
-            print(
+            logger.info(
                 f"Epoch {epoch + 1}/{finetune_epochs} - "
                 f"Validation loss: {valid_loss:.4f}, "
                 f"Validation accuracy: {valid_accuracy:.2f}%"
@@ -95,6 +98,6 @@ def prune_model(
     sparsity = 1.0 - utility.pruning.calculate_total_sparsity(
         model, parameters_to_prune
     )
-    print(f"Final sparsity: {sparsity:.2f}")
+    logger.info(f"Final sparsity: {sparsity:.2f}")
 
     return model

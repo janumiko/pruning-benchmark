@@ -1,0 +1,2 @@
+name: resnet18
+path: models/resnet18_cifar100.pth

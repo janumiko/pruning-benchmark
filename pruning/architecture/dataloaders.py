@@ -5,7 +5,7 @@ from omegaconf import DictConfig
 
 
 def get_cifar10(cfg: DictConfig) -> tuple[Dataset, Dataset, Dataset]:
-    normalize_tensor = transforms.Compose(
+    test_transform = transforms.Compose(
         [
             transforms.ToTensor(),
             transforms.Normalize(
@@ -14,11 +14,11 @@ def get_cifar10(cfg: DictConfig) -> tuple[Dataset, Dataset, Dataset]:
         ]
     )
 
-    train_norm = transforms.Compose(
+    train_transform = transforms.Compose(
         [
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
-            normalize_tensor,
+            test_transform,
         ]
     )
 
@@ -26,14 +26,49 @@ def get_cifar10(cfg: DictConfig) -> tuple[Dataset, Dataset, Dataset]:
         root=cfg.dataset.path,
         train=True,
         download=cfg.dataset.download,
-        transform=train_norm,
+        transform=train_transform,
     )
 
     test_dataset = datasets.CIFAR10(
         root=cfg.dataset.path,
         train=False,
         download=cfg.dataset.download,
-        transform=normalize_tensor,
+        transform=test_transform,
+    )
+
+    validate_dataset, test_dataset = random_split(test_dataset, [0.8, 0.2])
+
+    return train_dataset, validate_dataset, test_dataset
+
+
+def get_cifar100(cfg: DictConfig) -> tuple[Dataset, Dataset, Dataset]:
+    test_transform = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize((0.5074, 0.4867, 0.4411), (0.2011, 0.1987, 0.2025)),
+        ]
+    )
+
+    train_transform = transforms.Compose(
+        [
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomCrop(32, padding=4, padding_mode="reflect"),
+            test_transform,
+        ]
+    )
+
+    train_dataset = datasets.CIFAR100(
+        root=cfg.dataset.path,
+        train=True,
+        download=cfg.dataset.download,
+        transform=train_transform,
+    )
+
+    test_dataset = datasets.CIFAR100(
+        root=cfg.dataset.path,
+        train=False,
+        download=cfg.dataset.download,
+        transform=test_transform,
     )
 
     validate_dataset, test_dataset = random_split(test_dataset, [0.8, 0.2])
@@ -44,10 +79,13 @@ def get_cifar10(cfg: DictConfig) -> tuple[Dataset, Dataset, Dataset]:
 def get_dataset(
     cfg: DictConfig,
 ) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
-    if cfg.dataset.name.lower() == "cifar10":
-        return get_cifar10(cfg)
-    else:
-        raise ValueError(f"Unknown dataset: {cfg.dataset.name}")
+    match cfg.dataset.name.lower():
+        case "cifar10":
+            return get_cifar10(cfg)
+        case "cifar100":
+            return get_cifar100(cfg)
+        case _:
+            raise ValueError(f"Unknown dataset: {cfg.dataset.name}")
 
 
 def get_dataloaders(

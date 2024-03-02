@@ -9,12 +9,21 @@ from architecture.pruning_loop import prune_model
 import architecture.utility as utility
 import datetime
 import wandb
+import logging
+import numpy as np
+import random
+
+logger = logging.getLogger(__name__)
 
 
 @hydra.main(config_path="conf", config_name="config", version_base="1.2")
 def main(cfg: DictConfig) -> None:
-    print(OmegaConf.to_yaml(cfg))
+    logger.info(OmegaConf.to_yaml(cfg))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    torch.manual_seed(cfg.seed.torch)
+    np.random.seed(cfg.seed.numpy)
+    random.seed(cfg.seed.random)
 
     model: torch.nn.Module = construct_model(cfg).to(device)
     train_dl, valid_dl, test_dl = get_dataloaders(cfg)
@@ -52,14 +61,14 @@ def main(cfg: DictConfig) -> None:
         wandb_run=wandb_run,
     )
 
-    test_loss, test_accuracy = utility.training.validate(
-        module=pruned_model,
-        valid_dl=test_dl,
+    test_loss, test_accuracy = utility.training.test(
+        model=pruned_model,
+        test_dl=test_dl,
         loss_function=cross_entropy,
         device=device,
     )
 
-    print(f"Test accuracy: {test_accuracy:.2f}%")
+    logger.info(f"Test loss: {test_loss} Test accuracy: {test_accuracy:.2f}%")
 
     # Save the model to the Hydra output directory
     output_dir = Path(hydra.core.hydra_config.HydraConfig.get().runtime.output_dir)

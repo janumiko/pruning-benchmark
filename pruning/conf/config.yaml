@@ -1,5 +1,5 @@
 defaults:
-  - dataset: cifar10
+  - dataset: ???
   - model: ???
   - optimizer: adamw
 
@@ -12,3 +12,8 @@ pruning:
 wandb:
   logging: False
   project: pruning
+
+seed:
+  torch: 42
+  numpy: 42
+  random: 42
