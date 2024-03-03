@@ -25,11 +25,11 @@ def construct_resnet18(path: str) -> nn.Module:
 
 def construct_model(cfg: DictConfig) -> nn.Module:
     match (cfg.model.name.lower(), cfg.dataset.name.lower()):
-        case ("lenet", "cifar10"):
+        case ("lenet", _):
             return construct_lenet(cfg.model.path)
-        case ("resnet50", "cifar10"):
+        case ("resnet50", _):
             return construct_resnet50(cfg.model.path)
-        case ("resnet18", "cifar100"):
+        case ("resnet18", _):
             return construct_resnet18(cfg.model.path)
         case _:
             raise ValueError(
