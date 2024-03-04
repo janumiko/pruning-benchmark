@@ -18,3 +18,4 @@ seed:
   value: ???
 
 repeat: 1
+autocast: True

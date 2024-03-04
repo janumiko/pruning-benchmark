@@ -1,8 +1,8 @@
 import torch
-from architecture.lenet import LeNet
+from pruning.architecture.models.lenet_cifar import LeNet
+from pruning.architecture.models.resnet import ResNet18, ResNet50
 from omegaconf import DictConfig
 from torch import nn
-from torchvision.models import resnet50, resnet18
 
 
 def construct_lenet(path: str) -> nn.Module:
@@ -12,13 +12,13 @@ def construct_lenet(path: str) -> nn.Module:
 
 
 def construct_resnet50(path: str) -> nn.Module:
-    model = resnet50()
+    model = ResNet50()
     model.load_state_dict(torch.load(path))
     return model
 
 
 def construct_resnet18(path: str) -> nn.Module:
-    model = resnet18()
+    model = ResNet18()
     model.load_state_dict(torch.load(path))
     return model
 

@@ -18,8 +18,22 @@ logger = logging.getLogger(__name__)
 
 @hydra.main(config_path="conf", config_name="config", version_base="1.2")
 def main(cfg: DictConfig) -> None:
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    """Main function for the pruning entry point
+
+    Args:
+        cfg (DictConfig): Hydra config object with all the settings. (Located in conf/config.yaml)
+    """
+
     logger.info(OmegaConf.to_yaml(cfg))
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Save the model to the Hydra output directory
+    hydra_output_dir = Path(
+        hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+    )
+
+    if cfg.autocast:
+        torch.cuda.amp.autocast()
 
     if cfg.seed.is_set:
         torch.manual_seed(cfg.seed.value)
@@ -29,6 +43,7 @@ def main(cfg: DictConfig) -> None:
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
+    test_results = []
     for i in range(cfg.repeat):
         logger.info(f"Repeat {i+1}/{cfg.repeat}")
 
@@ -74,17 +89,18 @@ def main(cfg: DictConfig) -> None:
             loss_function=cross_entropy,
             device=device,
         )
-
-        logger.info(f"Test loss: {test_loss} Test accuracy: {test_accuracy:.2f}%")
-
-        # Save the model to the Hydra output directory
-        output_dir = Path(hydra.core.hydra_config.HydraConfig.get().runtime.output_dir)
+        test_results.append(test_accuracy)
+        logger.info(f"Test loss: {test_loss} Test accuracy: {test_accuracy:.5f}%")
 
         current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         torch.save(
             pruned_model.state_dict(),
-            output_dir / f"{cfg.model.name}_{current_date}.pth",
+            hydra_output_dir / f"{cfg.model.name}_{current_date}.pth",
         )
+
+    test_results = np.array(test_results)
+    logger.info(f"Average test accuracy: {test_results.mean():.5f}%")
+    logger.info(f"Standard deviation: {test_results.std():.5f}%")
 
 
 if __name__ == "__main__":

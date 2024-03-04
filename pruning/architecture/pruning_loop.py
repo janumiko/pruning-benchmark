@@ -71,10 +71,11 @@ def prune_model(
                 device=device,
             )
 
-            valid_loss, valid_accuracy = utility.training.validate(
+            valid_loss, valid_accuracy = utility.training.validate_epoch(
                 module=model,
                 valid_dl=valid_dl,
                 loss_function=loss_fn,
+                metrics_functions={"valid_accuracy": utility.metrics.accuracy},
                 device=device,
             )
 

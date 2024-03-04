@@ -11,6 +11,7 @@ def train_epoch(
     train_dl: DataLoader,
     optimizer: optim.Optimizer,
     loss_function: Callable,
+    enable_autocast: bool = True,
     device: torch.device = torch.device("cpu"),
 ) -> float:
     """Train a module for one epoch.
@@ -20,6 +21,7 @@ def train_epoch(
         train_dl (DataLoader): Dataloader for the train data.
         optimizer (optim.Optimizer): Optimizer instance.
         loss_function (Callable): Loss function callable.
+        enable_autocast (bool, optional): Whether to use automatic mixed precision. Defaults to True.
         device (torch.device, optional): Pytorch device. Defaults to torch.device("cpu").
 
     Returns:
@@ -31,57 +33,67 @@ def train_epoch(
     for inputs, labels in train_dl:
         inputs, labels = inputs.to(device), labels.to(device)
 
+        # Zero the parameter gradients
+        optimizer.zero_grad()
+
         # Compute prediction error
-        prediction = module(inputs)
-        loss = loss_function(prediction, labels)
+        with torch.cuda.amp.autocast(enabled=enable_autocast):
+            prediction = module(inputs)
+            loss = loss_function(prediction, labels)
 
         # Backpropagation
         loss.backward()
         optimizer.step()
-        optimizer.zero_grad()
 
         train_loss += loss.item()
 
     return train_loss / len(train_dl)
 
 
-def validate(
+def validate_epoch(
     module: nn.Module,
     valid_dl: DataLoader,
     loss_function: Callable,
+    metrics_functions: dict[str, Callable],
+    enable_autocast: bool = True,
     device: torch.device = torch.device("cpu"),
-) -> tuple[float, float]:
+) -> dict[str, float]:
     """Validate the model on given data.
 
     Args:
         model (nn.Module): PyTorch module.
         valid_dl (DataLoader): Dataloader for the validation data.
         loss_function (Callable): Loss function callable.
+        metrics_functions (dict[str, Callable]): Dictionary with metric_name : callable pairs.
+        enable_autocast (bool, optional): Whether to use automatic mixed precision. Defaults to True.
         device (torch.device, optional): Pytorch device. Defaults to torch.device("cpu").
 
     Returns:
-        tuple[float, float]: Average loss and accuracy for the validation data.
+        dict[str, float]: Dictionary with average loss and metrics for the validation data.
     """
 
     module.eval()
-    valid_loss = 0.0
-    valid_accuracy = 0.0
+    metrics = {name: 0.0 for name in metrics_functions.keys()}
+    metrics["valid_loss"] = 0.0
+
     with torch.no_grad():
-        for X, y in valid_dl:
-            X, y = X.to(device), y.to(device)
+        for X, labels in valid_dl:
+            X, labels = X.to(device), labels.to(device)
 
             # Compute prediction error
-            pred = module(X)
-            loss = loss_function(pred, y)
+            with torch.cuda.amp.autocast(enabled=enable_autocast):
+                pred = module(X)
+                loss = loss_function(pred, labels)
 
-            # Compute accuracy
-            valid_accuracy += (pred.argmax(1) == y).float().mean()
-            valid_loss += loss.item()
+            metrics["valid_loss"] += loss.item()
 
-    valid_loss /= len(valid_dl)
-    valid_accuracy /= len(valid_dl)
+            for name, func in metrics_functions.items():
+                metrics[name] += func(pred, labels)
 
-    return (valid_loss, valid_accuracy)
+    for name, _ in metrics.items():
+        metrics[name] /= len(valid_dl)
+
+    return metrics
 
 
 def test(
@@ -118,3 +130,22 @@ def test(
     accuracy = (correct / size) * 100
 
     return (test_loss, accuracy)
+
+
+def accuracy(output: torch.Tensor, labels: torch.Tensor) -> float:
+    """Calculate accuracy of the model.
+
+    Args:
+        output (torch.Tensor): Predicted output from the model.
+        target (torch.Tensor): Correct labels for the data.
+
+    Returns:
+        float: The accuracy of the model in the range [0, 1].
+    """
+    with torch.no_grad():
+        pred = torch.argmax(output, dim=1)
+        assert pred.shape[0] == len(labels)
+        correct = 0
+        correct += torch.sum(pred == labels).item()
+
+    return correct / len(labels)
