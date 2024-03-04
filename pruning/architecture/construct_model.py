@@ -1,6 +1,6 @@
 import torch
-from pruning.architecture.models.lenet_cifar import LeNet
-from pruning.architecture.models.resnet import ResNet18, ResNet50
+from architecture.models.lenet_cifar import LeNet
+from architecture.models.resnet import ResNet18, ResNet50
 from omegaconf import DictConfig
 from torch import nn
 
