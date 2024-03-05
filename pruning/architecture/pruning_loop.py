@@ -21,7 +21,7 @@ def prune_model(
     valid_dl: torch.utils.data.DataLoader,
     device: torch.device = torch.device("cpu"),
     wandb_run: None | Any = None,
-) -> nn.Module:
+) -> None:
     """Prune the model using the given method.
 
     Args:
@@ -37,23 +37,11 @@ def prune_model(
         valid_dl (torch.utils.data.DataLoader): The validation dataloader.
         device (torch.device, optional): The device to use for training. Defaults to torch.device("cpu").
         wandb_run (None | Any, optional): The wandb object to use for logging. Defaults to None.
-
-    Returns:
-        nn.Module: Pruned model.
     """
 
-    valid_loss, valid_accuracy = utility.training.validate(
-        module=model,
-        valid_dl=valid_dl,
-        loss_function=loss_fn,
-        device=device,
-    )
-
     logger.info(
-        f"Initial validation loss: {valid_loss:.4f}, "
-        f"validation accuracy: {valid_accuracy:.2f}%)"
+        f"Iterations: {iterations}\nPruning {pruning_amount} parameters per step"
     )
-
     for iteration in range(iterations):
         prune.global_unstructured(
             parameters_to_prune,
@@ -71,13 +59,15 @@ def prune_model(
                 device=device,
             )
 
-            valid_loss, valid_accuracy = utility.training.validate_epoch(
+            metrics = utility.training.validate_epoch(
                 module=model,
                 valid_dl=valid_dl,
                 loss_function=loss_fn,
-                metrics_functions={"valid_accuracy": utility.metrics.accuracy},
+                metrics_functions={"valid_accuracy": utility.training.accuracy},
                 device=device,
             )
+            valid_loss = metrics["valid_loss"]
+            valid_accuracy = metrics["valid_accuracy"] * 100
 
             logger.info(
                 f"Epoch {epoch + 1}/{finetune_epochs} - "
@@ -100,5 +90,3 @@ def prune_model(
         model, parameters_to_prune
     )
     logger.info(f"Final sparsity: {sparsity:.2f}")
-
-    return model

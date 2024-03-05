@@ -1,4 +1,6 @@
+import random
 from typing import Callable
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -97,7 +99,7 @@ def validate_epoch(
 
 
 def test(
-    model: nn.Module,
+    module: nn.Module,
     test_dl: DataLoader,
     loss_function: Callable,
     device: torch.device = torch.device("cpu"),
@@ -105,7 +107,7 @@ def test(
     """Test the model on the test dataset.
 
     Args:
-        model (nn.Module): PyTorch module.
+        module (nn.Module): PyTorch module.
         test_dl (DataLoader): Dataloader for the test data.
         loss_function (Callable): Loss function callable.
         device (torch.device, optional): PyTorch device. Defaults to torch.device("cpu").
@@ -116,13 +118,13 @@ def test(
 
     size = len(test_dl.dataset)  # type: ignore
     num_batches = len(test_dl)
-    model.eval()
+    module.eval()
 
     test_loss, correct = 0.0, 0
     with torch.no_grad():
         for X, y in test_dl:
             X, y = X.to(device), y.to(device)
-            pred = model(X)
+            pred = module(X)
             test_loss += loss_function(pred, y).item()
             correct += (pred.argmax(1) == y).type(torch.float).sum().item()
 
@@ -149,3 +151,17 @@ def accuracy(output: torch.Tensor, labels: torch.Tensor) -> float:
         correct += torch.sum(pred == labels).item()
 
     return correct / len(labels)
+
+
+def set_reproducibility(seed: int) -> None:
+    """Set the seed for reproducibility and deterministic behavior
+
+    Args:
+        seed (int): The seed to set for reproducibility
+    """
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False

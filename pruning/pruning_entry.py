@@ -11,7 +11,6 @@ import datetime
 import wandb
 import logging
 import numpy as np
-import random
 
 logger = logging.getLogger(__name__)
 
@@ -32,31 +31,33 @@ def main(cfg: DictConfig) -> None:
         hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     )
 
-    if cfg.autocast:
-        torch.cuda.amp.autocast()
-
     if cfg.seed.is_set:
-        torch.manual_seed(cfg.seed.value)
-        np.random.seed(cfg.seed.value)
-        random.seed(cfg.seed.value)
-        torch.cuda.manual_seed_all(cfg.seed.value)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+        utility.training.set_reproducibility(cfg.seed.value)
+
+    base_model: torch.nn.Module = construct_model(cfg).to(device)
+    train_dl, valid_dl, test_dl = get_dataloaders(cfg)
+    cross_entropy = torch.nn.CrossEntropyLoss()
+    base_test_loss, base_test_accuracy = utility.training.test(
+        module=base_model,
+        test_dl=test_dl,
+        loss_function=cross_entropy,
+        device=device,
+    )
+    logger.info(
+        f"Base test loss: {base_test_loss:.4f} base test accuracy: {base_test_accuracy:.2f}%"
+    )
 
     test_results = []
     for i in range(cfg.repeat):
         logger.info(f"Repeat {i+1}/{cfg.repeat}")
 
-        model: torch.nn.Module = construct_model(cfg).to(device)
-        train_dl, valid_dl, test_dl = get_dataloaders(cfg)
+        model = construct_model(cfg).to(device)
         optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=cfg.optimizer.lr,
             weight_decay=cfg.optimizer.weight_decay,
         )
-        cross_entropy = torch.nn.CrossEntropyLoss()
         pruning_parameters = utility.pruning.get_parameters_to_prune(model)
-
         pruning_amount = int(
             round(
                 utility.pruning.calculate_parameters_amount(pruning_parameters)
@@ -68,7 +69,7 @@ def main(cfg: DictConfig) -> None:
         if cfg.wandb.logging:
             wandb_run = wandb.init(project=cfg.wandb.project)
 
-        pruned_model = prune_model(
+        prune_model(
             model=model,
             method=prune.L1Unstructured,
             parameters_to_prune=pruning_parameters,
@@ -84,23 +85,27 @@ def main(cfg: DictConfig) -> None:
         )
 
         test_loss, test_accuracy = utility.training.test(
-            model=pruned_model,
+            module=model,
             test_dl=test_dl,
             loss_function=cross_entropy,
             device=device,
         )
         test_results.append(test_accuracy)
-        logger.info(f"Test loss: {test_loss} Test accuracy: {test_accuracy:.5f}%")
+        logger.info(f"Test loss: {test_loss:.4f} Test accuracy: {test_accuracy:.2f}%")
 
         current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         torch.save(
-            pruned_model.state_dict(),
+            model.state_dict(),
             hydra_output_dir / f"{cfg.model.name}_{current_date}.pth",
         )
 
     test_results = np.array(test_results)
-    logger.info(f"Average test accuracy: {test_results.mean():.5f}%")
-    logger.info(f"Standard deviation: {test_results.std():.5f}%")
+    logger.info(f"Base test accuracy: {base_test_accuracy:.2f}%")
+    logger.info(f"Average test accuracy: {test_results.mean():.2f}%")
+    logger.info(f"Standard deviation: {test_results.std():.2f} percentage points")
+    logger.info(
+        f"Average accuracy loss after pruning: {base_test_accuracy - test_results.mean():.2f} percentage points"
+    )
 
 
 if __name__ == "__main__":
