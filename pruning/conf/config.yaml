@@ -18,3 +18,4 @@ seed:
   value: ???
 
 repeat: 1
+save_checkpoints: False
