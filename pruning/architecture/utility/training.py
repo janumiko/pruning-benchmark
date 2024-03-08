@@ -1,6 +1,8 @@
+from pathlib import Path
 import random
 from typing import Callable
 import numpy as np
+import pandas as pd
 
 import torch
 import torch.nn as nn
@@ -165,3 +167,14 @@ def set_reproducibility(seed: int) -> None:
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
+
+
+def create_output_csv(path: Path, columns: list[str]) -> None:
+    """Create a CSV file with the given columns
+
+    Args:
+        path (str): The path to the CSV file
+        columns (list[str]): The columns for the CSV file
+    """
+    df = pd.DataFrame(columns=columns)
+    df.to_csv(path, index=False, mode="w")
