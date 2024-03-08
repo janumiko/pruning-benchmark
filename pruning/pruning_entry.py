@@ -1,6 +1,7 @@
 import hydra
 import torch
 import torch.nn.utils.prune as prune
+from torch import nn
 from pathlib import Path
 from omegaconf import DictConfig, OmegaConf
 from architecture.dataloaders import get_dataloaders
@@ -10,7 +11,7 @@ import architecture.utility as utility
 import datetime
 import wandb
 import logging
-import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +31,14 @@ def main(cfg: DictConfig) -> None:
     hydra_output_dir = Path(
         hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     )
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
     if cfg.seed.is_set:
         utility.training.set_reproducibility(cfg.seed.value)
 
-    base_model: torch.nn.Module = construct_model(cfg).to(device)
+    base_model: nn.Module = construct_model(cfg).to(device)
     train_dl, valid_dl, test_dl = get_dataloaders(cfg)
-    cross_entropy = torch.nn.CrossEntropyLoss()
+    cross_entropy = nn.CrossEntropyLoss()
     base_test_loss, base_test_accuracy = utility.training.test(
         module=base_model,
         test_dl=test_dl,
@@ -47,7 +49,21 @@ def main(cfg: DictConfig) -> None:
         f"Base test loss: {base_test_loss:.4f} base test accuracy: {base_test_accuracy:.2f}%"
     )
 
-    test_results = []
+    results_csv = hydra_output_dir / f"{current_date}.csv"
+    utility.training.create_output_csv(
+        results_csv,
+        [
+            "Model",
+            "Dataset",
+            "Total Pruning Percentage",
+            "Finetune Epochs",
+            "Test Loss",
+            "Test Accuracy",
+            "Difference To Baseline",
+        ],
+    )
+
+    results = []
     for i in range(cfg.repeat):
         logger.info(f"Repeat {i+1}/{cfg.repeat}")
 
@@ -57,7 +73,9 @@ def main(cfg: DictConfig) -> None:
             lr=cfg.optimizer.lr,
             weight_decay=cfg.optimizer.weight_decay,
         )
-        pruning_parameters = utility.pruning.get_parameters_to_prune(model)
+        pruning_parameters = utility.pruning.get_parameters_to_prune(
+            model, (nn.Linear, nn.Conv2d)
+        )
         pruning_amount = int(
             round(
                 utility.pruning.calculate_parameters_amount(pruning_parameters)
@@ -90,21 +108,37 @@ def main(cfg: DictConfig) -> None:
             loss_function=cross_entropy,
             device=device,
         )
-        test_results.append(test_accuracy)
+
+        results.append(
+            {
+                "Model": cfg.model.name,
+                "Dataset": cfg.dataset.name,
+                "Total Pruning Percentage": cfg.pruning.iterations
+                * cfg.pruning.iteration_rate,
+                "Finetune Epochs": cfg.pruning.finetune_epochs,
+                "Test Loss": test_loss,
+                "Test Accuracy": test_accuracy,
+                "Difference To Baseline": base_test_accuracy - test_accuracy,
+            }
+        )
         logger.info(f"Test loss: {test_loss:.4f} Test accuracy: {test_accuracy:.2f}%")
 
-        current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        torch.save(
-            model.state_dict(),
-            hydra_output_dir / f"{cfg.model.name}_{current_date}.pth",
-        )
+        if cfg.save_checkpoints:
+            current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            torch.save(
+                model.state_dict(),
+                hydra_output_dir / f"{cfg.model.name}_{i}_{current_date}.pth",
+            )
 
-    test_results = np.array(test_results)
-    logger.info(f"Base test accuracy: {base_test_accuracy:.2f}%")
-    logger.info(f"Average test accuracy: {test_results.mean():.2f}%")
-    logger.info(f"Standard deviation: {test_results.std():.2f} percentage points")
-    logger.info(
-        f"Average accuracy loss after pruning: {base_test_accuracy - test_results.mean():.2f} percentage points"
+    results_df = pd.DataFrame(results)
+    results_df.round(2)
+    accuracy_mean = results_df["Test Accuracy"].mean()
+    accuracy_std = results_df["Test Accuracy"].std()
+    difference_mean = base_test_accuracy - accuracy_mean
+    logger.info(f"Mean accuracy {accuracy_mean:.2f}% ± {accuracy_std:.2f}%")
+    logger.info(f"Mean difference to baseline {difference_mean:.2f}")
+    results_df.to_csv(
+        results_csv, mode="a", header=False, index=False, float_format="%.2f"
     )
 
 
