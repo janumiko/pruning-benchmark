@@ -32,6 +32,7 @@ def main(cfg: DictConfig) -> None:
         hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     )
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logger.info(f"Hydra output directory: {hydra_output_dir}")
 
     if cfg.seed.is_set:
         utility.training.set_reproducibility(cfg.seed.value)
