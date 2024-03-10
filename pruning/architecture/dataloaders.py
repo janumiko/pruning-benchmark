@@ -94,13 +94,25 @@ def get_dataloaders(
     train_dataset, validate_dataset, test_dataset = get_dataset(cfg)
 
     train_loader = DataLoader(
-        train_dataset, batch_size=cfg.pruning.batch_size, shuffle=True
+        train_dataset,
+        batch_size=cfg.dataloaders.batch_size,
+        shuffle=True,
+        pin_memory=cfg.dataloaders.pin_memory,
+        num_workers=cfg.dataloaders.num_workers,
     )
     validation_loader = DataLoader(
-        validate_dataset, batch_size=cfg.pruning.batch_size, shuffle=False
+        validate_dataset,
+        batch_size=cfg.dataloaders.batch_size,
+        shuffle=False,
+        pin_memory=cfg.dataloaders.pin_memory,
+        num_workers=cfg.dataloaders.num_workers,
     )
     test_loader = DataLoader(
-        test_dataset, batch_size=cfg.pruning.batch_size, shuffle=False
+        test_dataset,
+        batch_size=cfg.dataloaders.batch_size,
+        shuffle=False,
+        pin_memory=cfg.dataloaders.pin_memory,
+        num_workers=cfg.dataloaders.num_workers,
     )
 
     return train_loader, validation_loader, test_loader
