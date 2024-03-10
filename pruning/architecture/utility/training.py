@@ -15,7 +15,6 @@ def train_epoch(
     train_dl: DataLoader,
     optimizer: optim.Optimizer,
     loss_function: Callable,
-    enable_autocast: bool = True,
     device: torch.device = torch.device("cpu"),
 ) -> float:
     """Train a module for one epoch.
@@ -25,7 +24,6 @@ def train_epoch(
         train_dl (DataLoader): Dataloader for the train data.
         optimizer (optim.Optimizer): Optimizer instance.
         loss_function (Callable): Loss function callable.
-        enable_autocast (bool, optional): Whether to use automatic mixed precision. Defaults to True.
         device (torch.device, optional): Pytorch device. Defaults to torch.device("cpu").
 
     Returns:
@@ -41,9 +39,8 @@ def train_epoch(
         optimizer.zero_grad()
 
         # Compute prediction error
-        with torch.cuda.amp.autocast(enabled=enable_autocast):
-            prediction = module(inputs)
-            loss = loss_function(prediction, labels)
+        prediction = module(inputs)
+        loss = loss_function(prediction, labels)
 
         # Backpropagation
         loss.backward()
@@ -59,7 +56,6 @@ def validate_epoch(
     valid_dl: DataLoader,
     loss_function: Callable,
     metrics_functions: dict[str, Callable],
-    enable_autocast: bool = True,
     device: torch.device = torch.device("cpu"),
 ) -> dict[str, float]:
     """Validate the model on given data.
@@ -85,9 +81,8 @@ def validate_epoch(
             X, labels = X.to(device), labels.to(device)
 
             # Compute prediction error
-            with torch.cuda.amp.autocast(enabled=enable_autocast):
-                pred = module(X)
-                loss = loss_function(pred, labels)
+            pred = module(X)
+            loss = loss_function(pred, labels)
 
             metrics["valid_loss"] += loss.item()
 
