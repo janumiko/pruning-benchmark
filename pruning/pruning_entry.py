@@ -134,9 +134,12 @@ def main(cfg: DictConfig) -> None:
     results_df.round(2)
     accuracy_mean = results_df["Test Accuracy"].mean()
     accuracy_std = results_df["Test Accuracy"].std()
-    difference_mean = base_test_accuracy - accuracy_mean
+    difference_mean = results_df["Difference To Baseline"].mean()
+    difference_std = results_df["Difference To Baseline"].std()
     logger.info(f"Mean accuracy {accuracy_mean:.2f}% ± {accuracy_std:.2f}%")
-    logger.info(f"Mean difference to baseline {difference_mean:.2f}")
+    logger.info(
+        f"Mean difference to baseline {difference_mean:.2f} ± {difference_std:.2f}%"
+    )
     results_df.to_csv(
         results_csv, mode="a", header=False, index=False, float_format="%.2f"
     )
