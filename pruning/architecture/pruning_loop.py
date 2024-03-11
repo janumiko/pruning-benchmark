@@ -64,23 +64,29 @@ def prune_model(
                 module=model,
                 valid_dl=valid_dl,
                 loss_function=loss_fn,
-                metrics_functions={"valid_accuracy": utility.training.accuracy},
+                metrics_functions={
+                    "accuracy": utility.training.accuracy,
+                    "top5_accuracy": utility.training.top5_accuracy,
+                },
                 device=device,
             )
             valid_loss = metrics["valid_loss"]
-            valid_accuracy = metrics["valid_accuracy"] * 100
+            accuracy = metrics["accuracy"]
+            top5_accuracy = metrics["top5_accuracy"]
 
             logger.info(
                 f"Epoch {epoch + 1}/{finetune_epochs} - "
                 f"Validation loss: {valid_loss:.4f}, "
-                f"Validation accuracy: {valid_accuracy:.2f}%"
+                f"Validation accuracy: {accuracy:.2f}% "
+                f"Top 5 accuracy: {top5_accuracy:.2f}%"
             )
 
             if wandb_run:
                 wandb_run.log(
                     {
                         "valid_loss": valid_loss,
-                        "valid_accuracy": valid_accuracy,
+                        "accuracy": accuracy,
+                        "top-5 accuracy": top5_accuracy,
                     }
                 )
 

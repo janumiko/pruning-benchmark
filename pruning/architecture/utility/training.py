@@ -100,7 +100,7 @@ def test(
     test_dl: DataLoader,
     loss_function: Callable,
     device: torch.device = torch.device("cpu"),
-) -> tuple[float, float]:
+) -> tuple[float, float, float]:
     """Test the model on the test dataset.
 
     Args:
@@ -113,26 +113,27 @@ def test(
         tuple[float, float]: Average loss and accuracy for the test data.
     """
 
-    size = len(test_dl.dataset)  # type: ignore
     num_batches = len(test_dl)
     module.eval()
 
-    test_loss, correct = 0.0, 0
+    test_loss, acc, top5_acc = 0.0, 0.0, 0.0
     with torch.no_grad():
         for X, y in test_dl:
             X, y = X.to(device), y.to(device)
             pred = module(X)
             test_loss += loss_function(pred, y).item()
-            correct += (pred.argmax(1) == y).type(torch.float).sum().item()
+            acc += accuracy(pred, y)
+            top5_acc += top5_accuracy(pred, y)
 
     test_loss /= num_batches
-    accuracy = (correct / size) * 100
+    acc /= num_batches
+    top5_acc /= num_batches
 
-    return (test_loss, accuracy)
+    return (test_loss, acc, top5_acc)
 
 
 def accuracy(output: torch.Tensor, labels: torch.Tensor) -> float:
-    """Calculate accuracy of the model.
+    """Calculate accuracy of the model. An alias for topk_accuracy with k=1.
 
     Args:
         output (torch.Tensor): Predicted output from the model.
@@ -141,13 +142,42 @@ def accuracy(output: torch.Tensor, labels: torch.Tensor) -> float:
     Returns:
         float: The accuracy of the model in the range [0, 1].
     """
-    with torch.no_grad():
-        pred = torch.argmax(output, dim=1)
-        assert pred.shape[0] == len(labels)
-        correct = 0
-        correct += torch.sum(pred == labels).item()
+    return topk_accuracy(output, labels, topk=1)
 
-    return correct / len(labels)
+
+def top5_accuracy(prediction: torch.Tensor, target: torch.Tensor) -> float:
+    """Calculate top-5 accuracy of the model. An alias for topk_accuracy with k=5.
+
+    Args:
+        prediction (torch.Tensor): Predicted output from the model.
+        target (torch.Tensor): Correct labels for the data.
+
+    Returns:
+        float: The top-5 accuracy of the model in the range [0, 1].
+    """
+    return topk_accuracy(prediction, target, topk=5)
+
+
+def topk_accuracy(prediction: torch.Tensor, target: torch.Tensor, topk) -> float:
+    """Computes the accuracy over the k top predictions for the specified values of k.
+
+    Args:
+        prediction (torch.Tensor): Prediction tensor with shape (batch_size, num_classes).
+        target (torch.Tensor: Ground truth tensor with shape (batch_size).
+        topk (int): The values of k to compute the accuracy over.
+
+    Returns:
+        float: The top_k accuracy of the model.
+    """
+
+    with torch.no_grad():
+        top5_pred = torch.topk(prediction, k=topk, dim=1).indices
+        assert top5_pred.shape[0] == len(target)
+        correct = 0
+        for i in range(topk):
+            correct += torch.sum(top5_pred[:, i] == target).item()
+
+    return (correct * 100) / len(target)
 
 
 def set_reproducibility(seed: int) -> None:

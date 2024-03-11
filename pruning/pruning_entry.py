@@ -40,15 +40,15 @@ def main(cfg: DictConfig) -> None:
     base_model: nn.Module = construct_model(cfg).to(device)
     train_dl, valid_dl, test_dl = get_dataloaders(cfg)
     cross_entropy = nn.CrossEntropyLoss()
-    base_test_loss, base_test_accuracy = utility.training.test(
+    base_test_loss, base_test_accuracy, base_test_top5acc = utility.training.test(
         module=base_model,
         test_dl=test_dl,
         loss_function=cross_entropy,
         device=device,
     )
-    logger.info(
-        f"Base test loss: {base_test_loss:.4f} base test accuracy: {base_test_accuracy:.2f}%"
-    )
+    logger.info(f"Base test loss: {base_test_loss:.4f}")
+    logger.info(f"Base test accuracy: {base_test_accuracy:.2f}%")
+    logger.info(f"Base test top5 accuracy: {base_test_top5acc:.2f}%")
 
     results_csv = hydra_output_dir / f"{current_date}.csv"
     utility.training.create_output_csv(
@@ -56,11 +56,12 @@ def main(cfg: DictConfig) -> None:
         [
             "Model",
             "Dataset",
-            "Total Pruning Percentage",
-            "Finetune Epochs",
-            "Test Loss",
-            "Test Accuracy",
-            "Difference To Baseline",
+            "Total pruning percentage",
+            "Finetune epochs",
+            "Test loss",
+            "Test accuracy",
+            "Test top-5 accuracy",
+            "Difference to baseline",
         ],
     )
 
@@ -103,26 +104,29 @@ def main(cfg: DictConfig) -> None:
             wandb_run=wandb_run,
         )
 
-        test_loss, test_accuracy = utility.training.test(
+        test_loss, test_accuracy, test_top5acc = utility.training.test(
             module=model,
             test_dl=test_dl,
             loss_function=cross_entropy,
             device=device,
         )
+        logger.info(f"Test loss: {test_loss:.4f}")
+        logger.info(f"Test accuracy: {test_accuracy:.2f}%")
+        logger.info(f"Test top5 accuracy: {test_top5acc:.2f}%")
 
         results.append(
             {
                 "Model": cfg.model.name,
                 "Dataset": cfg.dataset.name,
-                "Total Pruning Percentage": cfg.pruning.iterations
+                "Total pruning percentage": cfg.pruning.iterations
                 * cfg.pruning.iteration_rate,
-                "Finetune Epochs": cfg.pruning.finetune_epochs,
-                "Test Loss": test_loss,
-                "Test Accuracy": test_accuracy,
-                "Difference To Baseline": base_test_accuracy - test_accuracy,
+                "Finetune epochs": cfg.pruning.finetune_epochs,
+                "Test loss": test_loss,
+                "Test accuracy": test_accuracy,
+                "Test top-5 accuracy": test_top5acc,
+                "Difference to baseline": base_test_accuracy - test_accuracy,
             }
         )
-        logger.info(f"Test loss: {test_loss:.4f} Test accuracy: {test_accuracy:.2f}%")
 
         if cfg.save_checkpoints:
             current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -133,13 +137,18 @@ def main(cfg: DictConfig) -> None:
 
     results_df = pd.DataFrame(results)
     results_df.round(2)
-    accuracy_mean = results_df["Test Accuracy"].mean()
-    accuracy_std = results_df["Test Accuracy"].std()
-    difference_mean = results_df["Difference To Baseline"].mean()
-    difference_std = results_df["Difference To Baseline"].std()
+    accuracy_mean = results_df["Test accuracy"].mean()
+    accuracy_std = results_df["Test accuracy"].std()
+    top5_accuracy_mean = results_df["Test top-5 accuracy"].mean()
+    top5_accuracy_std = results_df["Test top-5 accuracy"].std()
+    difference_mean = results_df["Difference to baseline"].mean()
+    difference_std = results_df["Difference to baseline"].std()
     logger.info(f"Mean accuracy {accuracy_mean:.2f}% ± {accuracy_std:.2f}%")
     logger.info(
-        f"Mean difference to baseline {difference_mean:.2f} ± {difference_std:.2f}%"
+        f"Mean difference to baseline {difference_mean:.2f}% ± {difference_std:.2f}%"
+    )
+    logger.info(
+        f"Mean top-5 accuracy {top5_accuracy_mean:.2f}% ± {top5_accuracy_std:.2f}%"
     )
     results_df.to_csv(
         results_csv, mode="a", header=False, index=False, float_format="%.2f"
