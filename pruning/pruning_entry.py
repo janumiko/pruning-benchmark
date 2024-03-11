@@ -7,6 +7,7 @@ from omegaconf import DictConfig, OmegaConf
 from architecture.dataloaders import get_dataloaders
 from architecture.construct_model import construct_model
 from architecture.pruning_loop import prune_model
+from architecture.utility.summary import log_summary
 import architecture.utility as utility
 import datetime
 import wandb
@@ -47,8 +48,8 @@ def main(cfg: DictConfig) -> None:
         device=device,
     )
     logger.info(f"Base test loss: {base_test_loss:.4f}")
-    logger.info(f"Base test accuracy: {base_test_accuracy:.2f}%")
-    logger.info(f"Base test top5 accuracy: {base_test_top5acc:.2f}%")
+    logger.info(f"Base top-1 Accuracy: {base_test_accuracy:.2f}%")
+    logger.info(f"Base top-5 accuracy: {base_test_top5acc:.2f}%")
 
     results_csv = hydra_output_dir / f"{current_date}.csv"
     utility.training.create_output_csv(
@@ -59,9 +60,10 @@ def main(cfg: DictConfig) -> None:
             "Total pruning percentage",
             "Finetune epochs",
             "Test loss",
-            "Test accuracy",
-            "Test top-5 accuracy",
-            "Difference to baseline",
+            "Top-1 accuracy",
+            "Top-5 accuracy",
+            "Top-1 difference",
+            "Top-5 difference",
         ],
     )
 
@@ -110,9 +112,6 @@ def main(cfg: DictConfig) -> None:
             loss_function=cross_entropy,
             device=device,
         )
-        logger.info(f"Test loss: {test_loss:.4f}")
-        logger.info(f"Test accuracy: {test_accuracy:.2f}%")
-        logger.info(f"Test top5 accuracy: {test_top5acc:.2f}%")
 
         results.append(
             {
@@ -122,9 +121,10 @@ def main(cfg: DictConfig) -> None:
                 * cfg.pruning.iteration_rate,
                 "Finetune epochs": cfg.pruning.finetune_epochs,
                 "Test loss": test_loss,
-                "Test accuracy": test_accuracy,
-                "Test top-5 accuracy": test_top5acc,
-                "Difference to baseline": base_test_accuracy - test_accuracy,
+                "Top-1 accuracy": test_accuracy,
+                "Top-5 accuracy": test_top5acc,
+                "Top-1 difference": base_test_accuracy - test_accuracy,
+                "Top-5 difference": base_test_top5acc - test_top5acc,
             }
         )
 
@@ -135,21 +135,8 @@ def main(cfg: DictConfig) -> None:
                 hydra_output_dir / f"{cfg.model.name}_{i}_{current_date}.pth",
             )
 
-    results_df = pd.DataFrame(results)
-    results_df.round(2)
-    accuracy_mean = results_df["Test accuracy"].mean()
-    accuracy_std = results_df["Test accuracy"].std()
-    top5_accuracy_mean = results_df["Test top-5 accuracy"].mean()
-    top5_accuracy_std = results_df["Test top-5 accuracy"].std()
-    difference_mean = results_df["Difference to baseline"].mean()
-    difference_std = results_df["Difference to baseline"].std()
-    logger.info(f"Mean accuracy {accuracy_mean:.2f}% ± {accuracy_std:.2f}%")
-    logger.info(
-        f"Mean difference to baseline {difference_mean:.2f}% ± {difference_std:.2f}%"
-    )
-    logger.info(
-        f"Mean top-5 accuracy {top5_accuracy_mean:.2f}% ± {top5_accuracy_std:.2f}%"
-    )
+    results_df = pd.DataFrame(results).round(2)
+    log_summary(results_df)
     results_df.to_csv(
         results_csv, mode="a", header=False, index=False, float_format="%.2f"
     )

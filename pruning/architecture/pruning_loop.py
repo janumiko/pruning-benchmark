@@ -43,15 +43,26 @@ def prune_model(
     logger.info(
         f"Iterations: {iterations}\nPruning {pruning_amount} parameters per step\nTotal parameter count: {total_count}"
     )
+
+    top1_logger = utility.loggers.AccuracyLogger(
+        "top-1 accuracy", logger, is_epoch_logging=True
+    )
+    top5_logger = utility.loggers.AccuracyLogger(
+        "top-5 accuracy", logger, topk=5, is_epoch_logging=True
+    )
+    metric_loggers = [top1_logger, top5_logger]
+
     for iteration in range(iterations):
+        logger.info(f"Pruning iteration {iteration + 1}/{iterations}")
         prune.global_unstructured(
             parameters_to_prune,
             pruning_method=method,
             amount=pruning_amount,
         )
 
-        logger.info(f"Pruning iteration {iteration + 1}/{iterations}")
         for epoch in range(finetune_epochs):
+            logger.info(f"Epoch {epoch + 1}/{finetune_epochs}")
+
             utility.training.train_epoch(
                 module=model,
                 train_dl=train_dl,
@@ -60,35 +71,20 @@ def prune_model(
                 device=device,
             )
 
-            metrics = utility.training.validate_epoch(
+            valid_loss = utility.training.validate_epoch(
                 module=model,
                 valid_dl=valid_dl,
                 loss_function=loss_fn,
-                metrics_functions={
-                    "accuracy": utility.training.accuracy,
-                    "top5_accuracy": utility.training.top5_accuracy,
-                },
+                loggers=metric_loggers,
                 device=device,
             )
-            valid_loss = metrics["valid_loss"]
-            accuracy = metrics["accuracy"]
-            top5_accuracy = metrics["top5_accuracy"]
 
-            logger.info(
-                f"Epoch {epoch + 1}/{finetune_epochs} - "
-                f"Validation loss: {valid_loss:.4f}, "
-                f"Validation accuracy: {accuracy:.2f}% "
-                f"Top 5 accuracy: {top5_accuracy:.2f}%"
-            )
+            logger.info(f"Validation loss: {valid_loss:.4f}")
 
             if wandb_run:
-                wandb_run.log(
-                    {
-                        "valid_loss": valid_loss,
-                        "accuracy": accuracy,
-                        "top-5 accuracy": top5_accuracy,
-                    }
-                )
+                wandb_run.log({"validation_loss": valid_loss})
+                for metric in metric_loggers:
+                    wandb_run.log({metric.metric_name: metric.epoch_history[-1]})
 
     for module, name in parameters_to_prune:
         prune.remove(module, name)

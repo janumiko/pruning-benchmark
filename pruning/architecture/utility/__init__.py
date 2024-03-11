@@ -1,1 +1,1 @@
-from . import training, pruning  # noqa F401
+from . import training, pruning, metrics, loggers  # noqa F401
