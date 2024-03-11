@@ -63,18 +63,17 @@ def calculate_total_sparsity(model: nn.Module) -> float:
     total_weights = 0
     total_zero_weights = 0
 
-    for module in model.modules():
-        for param in module.parameters():
-            if not param.requires_grad:
-                continue
+    for param in model.parameters():
+        if not param.requires_grad:
+            continue
 
-            total_weights += float(param.nelement())
-            total_zero_weights += float(torch.sum(param == 0))
+        total_weights += float(param.nelement())
+        total_zero_weights += float(torch.sum(param == 0))
 
     return (total_zero_weights / total_weights) * 100
 
 
-def calculate_parameters_amount(modules) -> int:
+def calculate_parameters_amount(modules: Iterable[tuple[nn.Module, str]]) -> int:
     """Calculate the total amount of parameters in a list of modules.
 
     Args:
@@ -89,3 +88,15 @@ def calculate_parameters_amount(modules) -> int:
         total_parameters += module._parameters[param_name].nelement()
 
     return total_parameters
+
+
+def get_parameter_count(module: nn.Module) -> int:
+    """Calculate the total amount of parameters in a module.
+
+    Args:
+        module (nn.Module): A PyTorch module.
+
+    Returns:
+        int: The total amount of parameters.
+    """
+    return sum(p.numel() for p in module.parameters() if p.requires_grad)

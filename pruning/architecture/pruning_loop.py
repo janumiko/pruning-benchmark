@@ -39,8 +39,9 @@ def prune_model(
         wandb_run (None | Any, optional): The wandb object to use for logging. Defaults to None.
     """
 
+    total_count = utility.pruning.get_parameter_count(model)
     logger.info(
-        f"Iterations: {iterations}\nPruning {pruning_amount} parameters per step"
+        f"Iterations: {iterations}\nPruning {pruning_amount} parameters per step\nTotal parameter count: {total_count}"
     )
     for iteration in range(iterations):
         prune.global_unstructured(
