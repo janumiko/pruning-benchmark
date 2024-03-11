@@ -75,7 +75,7 @@ def main(cfg: DictConfig) -> None:
             weight_decay=cfg.optimizer.weight_decay,
         )
         pruning_parameters = utility.pruning.get_parameters_to_prune(
-            model, (nn.Linear, nn.Conv2d)
+            model, (nn.Linear, nn.Conv2d, nn.BatchNorm2d)
         )
         pruning_amount = int(
             round(

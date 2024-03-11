@@ -74,7 +74,7 @@ def calculate_total_sparsity(model: nn.Module) -> float:
     return (total_zero_weights / total_weights) * 100
 
 
-def calculate_parameters_amount(modules: Iterable[tuple[nn.Module, str]]) -> int:
+def calculate_parameters_amount(modules) -> int:
     """Calculate the total amount of parameters in a list of modules.
 
     Args:
@@ -85,8 +85,7 @@ def calculate_parameters_amount(modules: Iterable[tuple[nn.Module, str]]) -> int
     """
 
     total_parameters = 0
-    for module, _ in modules:
-        for param in module.parameters():
-            total_parameters += param.nelement()
+    for module, param_name in modules:
+        total_parameters += module._parameters[param_name].nelement()
 
     return total_parameters
