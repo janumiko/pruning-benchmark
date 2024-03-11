@@ -49,22 +49,6 @@ def main(cfg: DictConfig) -> None:
     logger.info(f"Base top-1 Accuracy: {base_test_accuracy:.2f}%")
     logger.info(f"Base top-5 accuracy: {base_test_top5acc:.2f}%")
 
-    results_csv = hydra_output_dir / f"{current_date}.csv"
-    utility.training.create_output_csv(
-        results_csv,
-        [
-            "Model",
-            "Dataset",
-            "Total pruning percentage",
-            "Finetune epochs",
-            "Test loss",
-            "Top-1 accuracy",
-            "Top-5 accuracy",
-            "Top-1 difference",
-            "Top-5 difference",
-        ],
-    )
-
     if cfg.seed.is_set:
         utility.training.set_reproducibility(cfg.seed.value)
 
@@ -120,11 +104,6 @@ def main(cfg: DictConfig) -> None:
 
         results.append(
             {
-                "Model": cfg.model.name,
-                "Dataset": cfg.dataset.name,
-                "Total pruning percentage": cfg.pruning.iterations
-                * cfg.pruning.iteration_rate,
-                "Finetune epochs": cfg.pruning.finetune_epochs,
                 "Test loss": test_loss,
                 "Top-1 accuracy": test_accuracy,
                 "Top-5 accuracy": test_top5acc,
@@ -142,8 +121,20 @@ def main(cfg: DictConfig) -> None:
 
     results_df = pd.DataFrame(results).round(2)
     log_summary(results_df)
+
+    results_df["Model"] = cfg.model.name
+    results_df["Dataset"] = cfg.dataset.name
+    results_df["Total pruning percentage"] = (
+        cfg.pruning.iterations * cfg.pruning.iteration_rate
+    )
+    results_df["Finetune epochs"] = cfg.pruning.finetune_epochs
+    results_df["Early stopping"] = cfg.pruning.early_stopping
     results_df.to_csv(
-        results_csv, mode="a", header=False, index=False, float_format="%.2f"
+        hydra_output_dir / f"{current_date}.csv",
+        mode="w",
+        header=True,
+        index=True,
+        float_format="%.2f",
     )
 
 
