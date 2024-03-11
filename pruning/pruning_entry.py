@@ -8,6 +8,7 @@ from architecture.dataloaders import get_dataloaders
 from architecture.construct_model import construct_model
 from architecture.pruning_loop import prune_model
 from architecture.utility.summary import log_summary
+from architecture.construct_optimizer import construct_optimizer
 import architecture.utility as utility
 import datetime
 import wandb
@@ -34,9 +35,6 @@ def main(cfg: DictConfig) -> None:
     )
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     logger.info(f"Hydra output directory: {hydra_output_dir}")
-
-    if cfg.seed.is_set:
-        utility.training.set_reproducibility(cfg.seed.value)
 
     base_model: nn.Module = construct_model(cfg).to(device)
     train_dl, valid_dl, test_dl = get_dataloaders(cfg)
@@ -67,16 +65,22 @@ def main(cfg: DictConfig) -> None:
         ],
     )
 
+    if cfg.seed.is_set:
+        utility.training.set_reproducibility(cfg.seed.value)
+
+    early_stopper = None
+    if cfg.pruning.early_stopping:
+        early_stopper = utility.training.EarlyStopper(
+            patience=cfg.early_stopper.patience,
+            min_delta=cfg.early_stopper.min_delta,
+        )
+
     results = []
     for i in range(cfg.repeat):
         logger.info(f"Repeat {i+1}/{cfg.repeat}")
 
         model = construct_model(cfg).to(device)
-        optimizer = torch.optim.AdamW(
-            model.parameters(),
-            lr=cfg.optimizer.lr,
-            weight_decay=cfg.optimizer.weight_decay,
-        )
+        optimizer = construct_optimizer(cfg, model)
         pruning_parameters = utility.pruning.get_parameters_to_prune(
             model, (nn.Linear, nn.Conv2d, nn.BatchNorm2d)
         )
@@ -104,6 +108,7 @@ def main(cfg: DictConfig) -> None:
             valid_dl=valid_dl,
             device=device,
             wandb_run=wandb_run,
+            early_stopper=early_stopper,
         )
 
         test_loss, test_accuracy, test_top5acc = utility.training.test(

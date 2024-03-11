@@ -19,6 +19,7 @@ def prune_model(
     finetune_epochs: int,
     train_dl: torch.utils.data.DataLoader,
     valid_dl: torch.utils.data.DataLoader,
+    early_stopper: None | utility.training.EarlyStopper = None,
     device: torch.device = torch.device("cpu"),
     wandb_run: None | Any = None,
 ) -> None:
@@ -35,6 +36,7 @@ def prune_model(
         finetune_epochs (int): The amount of epochs to finetune the model.
         train_dl (torch.utils.data.DataLoader): The training dataloader.
         valid_dl (torch.utils.data.DataLoader): The validation dataloader.
+        early_stopper (None | utility.training.EarlyStopper, optional): The early stopper to use for finetuning. Defaults to None.
         device (torch.device, optional): The device to use for training. Defaults to torch.device("cpu").
         wandb_run (None | Any, optional): The wandb object to use for logging. Defaults to None.
     """
@@ -85,6 +87,10 @@ def prune_model(
                 wandb_run.log({"validation_loss": valid_loss})
                 for metric in metric_loggers:
                     wandb_run.log({metric.metric_name: metric.epoch_history[-1]})
+
+            if early_stopper.check_stop(valid_loss):
+                logger.info(f"Early stopping after {epoch+1} epochs")
+                break
 
     for module, name in parameters_to_prune:
         prune.remove(module, name)
