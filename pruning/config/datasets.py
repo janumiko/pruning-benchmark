@@ -6,7 +6,7 @@ from omegaconf import MISSING
 class BaseDataset:
     name: str = MISSING
     path: str = MISSING
-    num_of_classes: int = MISSING
+    num_classes: int = MISSING
     download: bool = False
 
 
@@ -14,11 +14,11 @@ class BaseDataset:
 class CIFAR10(BaseDataset):
     name: str = "cifar10"
     path: str = "datasets/cifar10"
-    num_of_classes: int = 10
+    num_classes: int = 10
 
 
 @dataclass
 class CIFAR100(BaseDataset):
     name: str = "cifar100"
     path: str = "datasets/cifar100"
-    num_of_classes: int = 100
+    num_classes: int = 100
