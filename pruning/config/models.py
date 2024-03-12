@@ -1,0 +1,26 @@
+from dataclasses import dataclass
+from omegaconf import MISSING
+
+
+@dataclass
+class BaseModel:
+    name: str = MISSING
+    checkpoint_path: str = MISSING
+
+
+@dataclass
+class ResNet18_CIFAR10(BaseModel):
+    name: str = "resnet18"
+    checkpoint_path: str = "checkpoints/resnet18_cifar10.pth"
+
+
+@dataclass
+class ResNet18_CIFAR100(BaseModel):
+    name: str = "resnet18"
+    checkpoint_path: str = "checkpoints/resnet18_cifar100.pth"
+
+
+@dataclass
+class LeNet_CIFAR10(BaseModel):
+    name: str = "lenet"
+    checkpoint_path: str = "checkpoints/lenet_cifar10.pth"

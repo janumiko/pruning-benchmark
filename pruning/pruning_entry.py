@@ -3,7 +3,7 @@ import torch
 import torch.nn.utils.prune as prune
 from torch import nn
 from pathlib import Path
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import OmegaConf
 from architecture.dataloaders import get_dataloaders
 from architecture.construct_model import construct_model
 from architecture.pruning_loop import prune_model
@@ -14,16 +14,17 @@ import datetime
 import wandb
 import logging
 import pandas as pd
+from config.main_config import MainConfig
 
 logger = logging.getLogger(__name__)
 
 
-@hydra.main(config_path="conf", config_name="config", version_base="1.2")
-def main(cfg: DictConfig) -> None:
+@hydra.main(config_path="config", config_name="main_config", version_base="1.2")
+def main(cfg: MainConfig) -> None:
     """Main function for the pruning entry point
 
     Args:
-        cfg (DictConfig): Hydra config object with all the settings. (Located in conf/config.yaml)
+        cfg (MainConfig): Hydra config object with all the settings. (Located in config/main_config.py)
     """
 
     logger.info(OmegaConf.to_yaml(cfg))

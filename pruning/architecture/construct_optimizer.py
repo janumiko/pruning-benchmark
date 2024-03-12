@@ -1,13 +1,13 @@
 import torch
-from omegaconf import DictConfig
+from config.main_config import MainConfig
 from torch import nn
 
 
-def construct_optimizer(cfg: DictConfig, model: nn.Module) -> torch.optim.Optimizer:
+def construct_optimizer(cfg: MainConfig, model: nn.Module) -> torch.optim.Optimizer:
     """Construct optimizer for the given model.
 
     Args:
-        cfg (DictConfig): Config dictionary.
+        cfg (MainConfig): Config dictionary.
         model (nn.Module): PyTorch model.
 
     Returns:

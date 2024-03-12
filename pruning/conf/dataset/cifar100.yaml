@@ -1,4 +1,0 @@
-name: cifar100
-path: datasets/cifar100
-download: False
-num_classes: 100

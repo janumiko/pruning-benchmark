@@ -1,10 +1,10 @@
 import torch
 from torchvision import transforms, datasets
 from torch.utils.data import Dataset, random_split, DataLoader
-from omegaconf import DictConfig
+from config.main_config import MainConfig
 
 
-def get_cifar10(cfg: DictConfig) -> tuple[Dataset, Dataset, Dataset]:
+def get_cifar10(cfg: MainConfig) -> tuple[Dataset, Dataset, Dataset]:
     test_transform = transforms.Compose(
         [
             transforms.ToTensor(),
@@ -41,7 +41,7 @@ def get_cifar10(cfg: DictConfig) -> tuple[Dataset, Dataset, Dataset]:
     return train_dataset, validate_dataset, test_dataset
 
 
-def get_cifar100(cfg: DictConfig) -> tuple[Dataset, Dataset, Dataset]:
+def get_cifar100(cfg: MainConfig) -> tuple[Dataset, Dataset, Dataset]:
     test_transform = transforms.Compose(
         [
             transforms.ToTensor(),
@@ -77,7 +77,7 @@ def get_cifar100(cfg: DictConfig) -> tuple[Dataset, Dataset, Dataset]:
 
 
 def get_dataset(
-    cfg: DictConfig,
+    cfg: MainConfig,
 ) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
     match cfg.dataset.name.lower():
         case "cifar10":
@@ -89,7 +89,7 @@ def get_dataset(
 
 
 def get_dataloaders(
-    cfg: DictConfig,
+    cfg: MainConfig,
 ) -> tuple[DataLoader, DataLoader, DataLoader]:
     train_dataset, validate_dataset, test_dataset = get_dataset(cfg)
 
