@@ -88,7 +88,7 @@ def prune_model(
                 for metric in metric_loggers:
                     wandb_run.log({metric.metric_name: metric.epoch_history[-1]})
 
-            if early_stopper.check_stop(valid_loss):
+            if early_stopper and early_stopper.check_stop(valid_loss):
                 logger.info(f"Early stopping after {epoch+1} epochs")
                 break
 
