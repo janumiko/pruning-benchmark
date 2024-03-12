@@ -191,3 +191,8 @@ class EarlyStopper:
             self.counter += 1
 
         return self.counter >= self.patience
+
+    def reset(self) -> None:
+        """Reset the early stopper"""
+        self.counter = 0
+        self.min_validation_loss = float("inf")

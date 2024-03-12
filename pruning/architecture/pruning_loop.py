@@ -90,6 +90,7 @@ def prune_model(
 
             if early_stopper and early_stopper.check_stop(valid_loss):
                 logger.info(f"Early stopping after {epoch+1} epochs")
+                early_stopper.reset()
                 break
 
     for module, name in parameters_to_prune:
