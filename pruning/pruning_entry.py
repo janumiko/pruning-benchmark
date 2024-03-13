@@ -120,7 +120,7 @@ def main(cfg: MainConfig) -> None:
                 hydra_output_dir / f"{cfg.model.name}_{i}_{current_date}.pth",
             )
 
-    results_df = pd.DataFrame(results).round(2)
+    results_df = pd.DataFrame(results).round(decimals=2)
     log_summary(results_df)
 
     results_df["Model"] = cfg.model.name
@@ -130,12 +130,14 @@ def main(cfg: MainConfig) -> None:
     )
     results_df["Finetune epochs"] = cfg.pruning.finetune_epochs
     results_df["Early stopping"] = cfg.pruning.early_stopping
+    results_df["Patience"] = cfg.early_stopper.patience
+    results_df["Optimizer"] = cfg.optimizer.name
+    results_df["Learning rate"] = cfg.optimizer.lr
     results_df.to_csv(
         hydra_output_dir / f"{current_date}.csv",
         mode="w",
         header=True,
         index=True,
-        float_format="%.2f",
     )
 
 
