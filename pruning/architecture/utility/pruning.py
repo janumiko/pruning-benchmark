@@ -100,3 +100,30 @@ def get_parameter_count(module: nn.Module) -> int:
         int: The total amount of parameters.
     """
     return sum(p.numel() for p in module.parameters() if p.requires_grad)
+
+
+def log_parameters_sparsity(
+    model: nn.Module, parameters_to_prune: Iterable[tuple[nn.Module, str]], logger
+):
+    """Log the sparsity of the model for given parameters.
+
+    Args:
+        model (nn.Module): A PyTorch model to calculate the sparsity of.
+        parameters_to_prune (Iterable[tuple[nn.Module, str]]): Iterable of parameters which are pruned.
+        logger: The logger to use for logging.
+    """
+    sparsity = 100 - calculate_parameters_sparsity(model, parameters_to_prune)
+    logger.info(f"Non-zero weights of the pruned parameters: {sparsity:.2f}%")
+    return sparsity
+
+
+def log_module_sparsity(model: nn.Module, logger):
+    """Log the sparsity of the model.
+
+    Args:
+        model (nn.Module): A PyTorch model to calculate the sparsity of.
+        logger: The logger to use for logging.
+    """
+    sparsity = 100 - calculate_total_sparsity(model)
+    logger.info(f"Non-zero weights of the pruned module: {sparsity:.2f}%")
+    return sparsity

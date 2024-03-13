@@ -96,11 +96,5 @@ def prune_model(
     for module, name in parameters_to_prune:
         prune.remove(module, name)
 
-    pruned_sparsity = 100 - utility.pruning.calculate_parameters_sparsity(
-        model, parameters_to_prune
-    )
-    total_sparsity = 100 - utility.pruning.calculate_total_sparsity(model)
-    logger.info(
-        f"Sparsity: {pruned_sparsity:.2f}% of non-zero values for pruned parameters."
-    )
-    logger.info(f"Total sparsity of the model {total_sparsity:.2f}%")
+    utility.pruning.log_parameters_sparsity(model, parameters_to_prune, logger)
+    utility.pruning.log_module_sparsity(model, logger)
