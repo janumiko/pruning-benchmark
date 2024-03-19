@@ -18,13 +18,13 @@ def construct_optimizer(cfg: MainConfig, model: nn.Module) -> torch.optim.Optimi
         case "adamw":
             return torch.optim.Adam(
                 model.parameters(),
-                lr=cfg.optimizer.lr,
+                lr=cfg.optimizer.learning_rate,
                 weight_decay=cfg.optimizer.weight_decay,
             )
         case "sgd":
             return torch.optim.SGD(
                 model.parameters(),
-                lr=cfg.optimizer.lr,
+                lr=cfg.optimizer.learning_rate,
                 momentum=cfg.optimizer.momentum,
                 weight_decay=cfg.optimizer.weight_decay,
             )

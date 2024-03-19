@@ -7,7 +7,6 @@ from omegaconf import OmegaConf
 from architecture.dataloaders import get_dataloaders
 from architecture.construct_model import construct_model
 from architecture.pruning_loop import prune_model
-from architecture.utility.summary import log_summary
 from architecture.construct_optimizer import construct_optimizer
 import architecture.utility as utility
 import datetime
@@ -26,17 +25,14 @@ def main(cfg: MainConfig) -> None:
     Args:
         cfg (MainConfig): Hydra config object with all the settings. (Located in config/main_config.py)
     """
-
     logger.info(OmegaConf.to_yaml(cfg))
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # Save the model to the Hydra output directory
     hydra_output_dir = Path(
         hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     )
-    current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     logger.info(f"Hydra output directory: {hydra_output_dir}")
+    current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     base_model: nn.Module = construct_model(cfg).to(device)
     train_dl, valid_dl, test_dl = get_dataloaders(cfg)
     cross_entropy = nn.CrossEntropyLoss()
@@ -46,12 +42,12 @@ def main(cfg: MainConfig) -> None:
         loss_function=cross_entropy,
         device=device,
     )
-    logger.info(f"Base test loss: {base_test_loss:.4f}")
-    logger.info(f"Base top-1 Accuracy: {base_test_accuracy:.2f}%")
+    logger.info(f"Base test.loss: {base_test_loss:.4f}")
+    logger.info(f"Base top-1 accuracy: {base_test_accuracy:.2f}%")
     logger.info(f"Base top-5 accuracy: {base_test_top5acc:.2f}%")
 
-    if cfg.seed.is_set:
-        utility.training.set_reproducibility(cfg.seed.value)
+    if cfg._seed.is_set:
+        utility.training.set_reproducibility(cfg._seed.value)
 
     early_stopper = None
     if cfg.pruning.early_stopping:
@@ -60,9 +56,13 @@ def main(cfg: MainConfig) -> None:
             min_delta=cfg.early_stopper.min_delta,
         )
 
+    wandb_run = None
+    if cfg._wandb.logging:
+        wandb_run = wandb.init(project=cfg._wandb.project)
+
     results = []
-    for i in range(cfg.repeat):
-        logger.info(f"Repeat {i+1}/{cfg.repeat}")
+    for i in range(cfg._repeat):
+        logger.info(f"Repeat {i+1}/{cfg._repeat}")
 
         model = construct_model(cfg).to(device)
         optimizer = construct_optimizer(cfg, model)
@@ -75,10 +75,6 @@ def main(cfg: MainConfig) -> None:
                 * cfg.pruning.iteration_rate
             )
         )
-
-        wandb_run = None
-        if cfg.wandb.logging:
-            wandb_run = wandb.init(project=cfg.wandb.project)
 
         prune_model(
             model=model,
@@ -105,15 +101,15 @@ def main(cfg: MainConfig) -> None:
 
         results.append(
             {
-                "Test loss": test_loss,
-                "Top-1 accuracy": test_accuracy,
-                "Top-5 accuracy": test_top5acc,
-                "Top-1 difference": base_test_accuracy - test_accuracy,
-                "Top-5 difference": base_test_top5acc - test_top5acc,
+                "loss": test_loss,
+                "top-1 accuracy": test_accuracy,
+                "top-5 accuracy": test_top5acc,
+                "top-1 difference": base_test_accuracy - test_accuracy,
+                "top-5 difference": base_test_top5acc - test_top5acc,
             }
         )
 
-        if cfg.save_checkpoints:
+        if cfg._save_checkpoints:
             current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             torch.save(
                 model.state_dict(),
@@ -121,23 +117,9 @@ def main(cfg: MainConfig) -> None:
             )
 
     results_df = pd.DataFrame(results).round(decimals=2)
-    log_summary(results_df)
-
-    results_df["Model"] = cfg.model.name
-    results_df["Dataset"] = cfg.dataset.name
-    results_df["Total pruning percentage"] = (
-        cfg.pruning.iterations * cfg.pruning.iteration_rate
-    )
-    results_df["Finetune epochs"] = cfg.pruning.finetune_epochs
-    results_df["Early stopping"] = cfg.pruning.early_stopping
-    results_df["Patience"] = cfg.early_stopper.patience
-    results_df["Optimizer"] = cfg.optimizer.name
-    results_df["Learning rate"] = cfg.optimizer.lr
-    results_df.to_csv(
-        hydra_output_dir / f"{current_date}.csv",
-        mode="w",
-        header=True,
-        index=True,
+    utility.summary.log_summary(results_df)
+    utility.summary.save_results_with_config(
+        results_df, cfg, hydra_output_dir / f"{current_date}.csv"
     )
 
 

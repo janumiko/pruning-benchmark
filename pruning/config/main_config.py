@@ -18,7 +18,7 @@ class Pruning:
 @dataclass
 class Wandb:
     logging: bool = False
-    project: str = "pruning"
+    project: str = MISSING
 
 
 @dataclass
@@ -29,14 +29,14 @@ class Seed:
 
 @dataclass
 class Dataloaders:
-    pin_memory: bool = True
-    num_workers: int = 4
+    _pin_memory: bool = True
+    _num_workers: int = 4
     batch_size: int = 128
 
 
 @dataclass
 class EarlyStopper:
-    patience: int = 10
+    patience: int = MISSING
     min_delta: float = 0.001
 
 
@@ -58,10 +58,10 @@ class MainConfig:
     early_stopper: EarlyStopper = field(default_factory=EarlyStopper)
     dataloaders: Dataloaders = field(default_factory=Dataloaders)
 
-    repeat: int = 1
-    save_checkpoints: bool = False
-    seed: Seed = field(default_factory=Seed)
-    wandb: Wandb = field(default_factory=Wandb)
+    _repeat: int = 1
+    _save_checkpoints: bool = False
+    _seed: Seed = field(default_factory=Seed)
+    _wandb: Wandb = field(default_factory=Wandb)
 
 
 config_store = ConfigStore.instance()

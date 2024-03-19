@@ -4,7 +4,7 @@ from torch.utils.data import Dataset, random_split, DataLoader
 from config.main_config import MainConfig
 
 
-def get_cifar10(cfg: MainConfig) -> tuple[Dataset, Dataset, Dataset]:
+def get_cifar10(path: str, download: bool) -> tuple[Dataset, Dataset, Dataset]:
     test_transform = transforms.Compose(
         [
             transforms.ToTensor(),
@@ -23,16 +23,16 @@ def get_cifar10(cfg: MainConfig) -> tuple[Dataset, Dataset, Dataset]:
     )
 
     train_dataset = datasets.CIFAR10(
-        root=cfg.dataset.path,
+        root=path,
         train=True,
-        download=cfg.dataset.download,
+        download=download,
         transform=train_transform,
     )
 
     test_dataset = datasets.CIFAR10(
-        root=cfg.dataset.path,
+        root=path,
         train=False,
-        download=cfg.dataset.download,
+        download=download,
         transform=test_transform,
     )
 
@@ -41,7 +41,7 @@ def get_cifar10(cfg: MainConfig) -> tuple[Dataset, Dataset, Dataset]:
     return train_dataset, validate_dataset, test_dataset
 
 
-def get_cifar100(cfg: MainConfig) -> tuple[Dataset, Dataset, Dataset]:
+def get_cifar100(path: str, download: bool) -> tuple[Dataset, Dataset, Dataset]:
     test_transform = transforms.Compose(
         [
             transforms.ToTensor(),
@@ -58,16 +58,16 @@ def get_cifar100(cfg: MainConfig) -> tuple[Dataset, Dataset, Dataset]:
     )
 
     train_dataset = datasets.CIFAR100(
-        root=cfg.dataset.path,
+        root=path,
         train=True,
-        download=cfg.dataset.download,
+        download=download,
         transform=train_transform,
     )
 
     test_dataset = datasets.CIFAR100(
-        root=cfg.dataset.path,
+        root=path,
         train=False,
-        download=cfg.dataset.download,
+        download=download,
         transform=test_transform,
     )
 
@@ -81,9 +81,9 @@ def get_dataset(
 ) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
     match cfg.dataset.name.lower():
         case "cifar10":
-            return get_cifar10(cfg)
+            return get_cifar10(cfg.dataset._path, cfg.dataset._download)
         case "cifar100":
-            return get_cifar100(cfg)
+            return get_cifar100(cfg.dataset._path, cfg.dataset._download)
         case _:
             raise ValueError(f"Unknown dataset: {cfg.dataset.name}")
 
@@ -97,22 +97,22 @@ def get_dataloaders(
         train_dataset,
         batch_size=cfg.dataloaders.batch_size,
         shuffle=True,
-        pin_memory=cfg.dataloaders.pin_memory,
-        num_workers=cfg.dataloaders.num_workers,
+        pin_memory=cfg.dataloaders._pin_memory,
+        num_workers=cfg.dataloaders._num_workers,
     )
     validation_loader = DataLoader(
         validate_dataset,
         batch_size=cfg.dataloaders.batch_size,
         shuffle=False,
-        pin_memory=cfg.dataloaders.pin_memory,
-        num_workers=cfg.dataloaders.num_workers,
+        pin_memory=cfg.dataloaders._pin_memory,
+        num_workers=cfg.dataloaders._num_workers,
     )
     test_loader = DataLoader(
         test_dataset,
         batch_size=cfg.dataloaders.batch_size,
         shuffle=False,
-        pin_memory=cfg.dataloaders.pin_memory,
-        num_workers=cfg.dataloaders.num_workers,
+        pin_memory=cfg.dataloaders._pin_memory,
+        num_workers=cfg.dataloaders._num_workers,
     )
 
     return train_loader, validation_loader, test_loader
