@@ -1,19 +1,21 @@
-import hydra
-import torch
-import torch.nn.utils.prune as prune
-from torch import nn
-from pathlib import Path
-from omegaconf import OmegaConf
-from architecture.dataloaders import get_dataloaders
-from architecture.construct_model import construct_model
-from architecture.pruning_loop import prune_model
-from architecture.construct_optimizer import construct_optimizer
-import architecture.utility as utility
 import datetime
-import wandb
 import logging
-import pandas as pd
+from pathlib import Path
+
+from architecture.construct_model import construct_model
+from architecture.construct_optimizer import construct_optimizer
+from architecture.dataloaders import get_dataloaders
+from architecture.pruning_loop import prune_model
+import architecture.utility as utility
+from architecture.utility.summary import strip_underscore_keys
 from config.main_config import MainConfig
+import hydra
+from omegaconf import OmegaConf
+import pandas as pd
+import torch
+from torch import nn
+import torch.nn.utils.prune as prune
+import wandb
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +28,17 @@ def main(cfg: MainConfig) -> None:
         cfg (MainConfig): Hydra config object with all the settings. (Located in config/main_config.py)
     """
     logger.info(OmegaConf.to_yaml(cfg))
-    hydra_output_dir = Path(
-        hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
-    )
+    hydra_output_dir = Path(hydra.core.hydra_config.HydraConfig.get().runtime.output_dir)
     logger.info(f"Hydra output directory: {hydra_output_dir}")
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    run_name = (
+        f"{cfg.model.name}_"
+        f"{cfg.dataset.name}_"
+        f"{cfg.pruning.iterations}_"
+        f"{cfg.pruning.iteration_rate}_"
+        f"{cfg.pruning.finetune_epochs}_"
+        f"{current_date}"
+    )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     base_model: nn.Module = construct_model(cfg).to(device)
@@ -56,12 +64,17 @@ def main(cfg: MainConfig) -> None:
             min_delta=cfg.early_stopper.min_delta,
         )
 
-    wandb_run = None
-    if cfg._wandb.logging:
-        wandb_run = wandb.init(project=cfg._wandb.project)
-
     results = []
     for i in range(cfg._repeat):
+        wandb_run = None
+        if cfg._wandb.logging:
+            dict_config = OmegaConf.to_container(cfg, resolve=True)
+            dict_config = strip_underscore_keys(dict_config)
+
+            wandb_run = wandb.init(
+                project=cfg._wandb.project, group=run_name, name=f"run_{i+1}/{cfg._repeat}", config=dict_config, job_type="test", entity="KowalskiTeam"
+            )
+
         logger.info(f"Repeat {i+1}/{cfg._repeat}")
 
         model = construct_model(cfg).to(device)
@@ -108,6 +121,17 @@ def main(cfg: MainConfig) -> None:
                 "top-5 difference": base_test_top5acc - test_top5acc,
             }
         )
+
+        if wandb_run:
+            row = results[-1].copy()
+            row.update({
+                "base_loss": base_test_loss,
+                "base_top-1_accuracy": base_test_accuracy,
+                "base_top-5_accuracy": base_test_top5acc,
+            })
+            table = wandb.Table(data=[list(row.values())], columns=list(row.keys()))
+            wandb_run.log({"pruning_results": table})
+            wandb_run.finish()
 
         if cfg._save_checkpoints:
             current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

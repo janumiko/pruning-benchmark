@@ -1,9 +1,10 @@
-from typing import Any
-import torch
-import torch.nn.utils.prune as prune
-from torch import nn
-import architecture.utility as utility
 import logging
+from typing import Any
+
+import architecture.utility as utility
+import torch
+from torch import nn
+import torch.nn.utils.prune as prune
 
 logger = logging.getLogger(__name__)
 
@@ -46,9 +47,7 @@ def prune_model(
         f"Iterations: {iterations}\nPruning {pruning_amount} parameters per step\nTotal parameter count: {total_count}"
     )
 
-    top1_logger = utility.loggers.AccuracyLogger(
-        "top-1 accuracy", logger, is_epoch_logging=True
-    )
+    top1_logger = utility.loggers.AccuracyLogger("top-1 accuracy", logger, is_epoch_logging=True)
     top5_logger = utility.loggers.AccuracyLogger(
         "top-5 accuracy", logger, topk=5, is_epoch_logging=True
     )
@@ -84,9 +83,9 @@ def prune_model(
             logger.info(f"Validation loss: {valid_loss:.4f}")
 
             if wandb_run:
-                wandb_run.log({"validation_loss": valid_loss})
-                for metric in metric_loggers:
-                    wandb_run.log({metric.metric_name: metric.epoch_history[-1]})
+                logs = {metric.metric_name: metric.epoch_history[-1] for metric in metric_loggers}
+                logs["validation_loss"] = valid_loss
+                wandb_run.log(logs)
 
             if early_stopper and early_stopper.check_stop(valid_loss):
                 logger.info(f"Early stopping after {epoch+1} epochs")
@@ -96,5 +95,12 @@ def prune_model(
     for module, name in parameters_to_prune:
         prune.remove(module, name)
 
-    utility.pruning.log_parameters_sparsity(model, parameters_to_prune, logger)
-    utility.pruning.log_module_sparsity(model, logger)
+    parameters_sparsity = utility.pruning.log_parameters_sparsity(
+        model, parameters_to_prune, logger
+    )
+    module_sparsity = utility.pruning.log_module_sparsity(model, logger)
+
+    if wandb_run:
+        wandb_run.log(
+            {"parameters_sparsity": parameters_sparsity, "module_sparsity": module_sparsity}
+        )
