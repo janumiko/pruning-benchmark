@@ -6,7 +6,6 @@ from typing import Callable
 from architecture.construct_model import construct_model
 from architecture.construct_optimizer import construct_optimizer
 from architecture.dataloaders import get_dataloaders
-from architecture.utility.summary import get_run_name
 import architecture.utility as utility
 from config.main_config import MainConfig
 import torch
@@ -14,15 +13,16 @@ from torch import nn
 import torch.nn.utils.prune as prune
 from wandb.sdk.wandb_run import Run
 import wandb
+from omegaconf import OmegaConf
 
 logger = logging.getLogger(__name__)
-
 
 
 def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    run_name = get_run_name(cfg, current_date)
+    run_name = utility.summary.get_run_name(cfg, current_date)
+    config = utility.summary.strip_underscore_keys(OmegaConf.to_container(cfg, resolve=True))
 
     base_model: nn.Module = construct_model(cfg).to(device)
     train_dl, valid_dl = get_dataloaders(cfg)
@@ -60,6 +60,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
     }
 
     for i in range(cfg._repeat):
+
         wandb_run = wandb.init(
             project=cfg._wandb.project if cfg._wandb.logging else None,
             mode="disabled" if not cfg._wandb.logging else "online",
@@ -67,7 +68,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
             name=f"run_{i+1}/{cfg._repeat}",
             job_type=cfg._wandb.job_type,
             entity=cfg._wandb.entity,
-            config=cfg,
+            config=config
         )
         logger.info(f"Repeat {i+1}/{cfg._repeat}")
 
@@ -104,8 +105,8 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
             early_stopper=early_stopper,
         )
 
-        parameters_sparsity = utility.pruning.log_parameters_sparsity(model, pruning_parameters, logger)
-        module_sparsity = utility.pruning.log_module_sparsity(model, logger)
+        utility.pruning.log_parameters_sparsity(model, pruning_parameters, logger)
+        utility.pruning.log_module_sparsity(model, logger)
 
         if cfg._save_checkpoints:
             current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -160,10 +161,17 @@ def prune_model(
             amount=pruning_amount,
         )
 
+        pruned, model_pruned = utility.pruning.calculate_pruning_ratio(model)
+        iteration_info = {
+            "iteration": iteration,
+            "pruned parameters": round(pruned, 4),
+            "model pruned": round(model_pruned, 4),
+        }
+
         for epoch in range(finetune_epochs):
             logger.info(f"Epoch {epoch + 1}/{finetune_epochs}")
 
-            utility.training.train_epoch(
+            train_loss = utility.training.train_epoch(
                 module=model,
                 train_dl=train_dl,
                 loss_function=loss_fn,
@@ -182,6 +190,9 @@ def prune_model(
             for key, value in metrics.items():
                 logger.info(f"{key}: {value:.4f}")
 
+            metrics["training loss"] = train_loss
+            metrics["epoch"] = epoch + 1
+            metrics.update(iteration_info)
             wandb_run.log(metrics)
 
             if early_stopper and early_stopper.check_stop(metrics["validation loss"]):
