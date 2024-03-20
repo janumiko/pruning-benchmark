@@ -1,24 +1,22 @@
 import datetime
+import logging
 from pathlib import Path
 from typing import Callable
-import pandas as pd
-import torch
-import torch.nn.utils.prune as prune
-from torch import nn
-import architecture.utility as utility
-import logging
-from config.main_config import MainConfig
+
 from architecture.construct_model import construct_model
 from architecture.construct_optimizer import construct_optimizer
 from architecture.dataloaders import get_dataloaders
+import architecture.utility as utility
+from config.main_config import MainConfig
+import torch
+from torch import nn
+import torch.nn.utils.prune as prune
 from wandb.sdk.wandb_run import Run
 
 logger = logging.getLogger(__name__)
 
 
-def start_pruning_experiment(
-    cfg: MainConfig, out_directory: Path, wandb_run: Run
-) -> None:
+def start_pruning_experiment(cfg: MainConfig, out_directory: Path, wandb_run: Run) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
@@ -117,8 +115,8 @@ def prune_model(
     valid_dl: torch.utils.data.DataLoader,
     metrics_dict: dict[str, Callable],
     wandb_run: Run,
+    device: torch.device,
     early_stopper: None | utility.training.EarlyStopper = None,
-    device: torch.device = torch.device("cpu"),
 ) -> None:
     """Prune the model using the given method.
 

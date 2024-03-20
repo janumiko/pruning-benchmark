@@ -1,6 +1,4 @@
-from typing import Iterable
 import torch
-from torch import nn
 
 
 def accuracy(output: torch.Tensor, labels: torch.Tensor) -> float:

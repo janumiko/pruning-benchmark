@@ -1,11 +1,12 @@
-import hydra
-from pathlib import Path
-from omegaconf import OmegaConf
-import architecture.utility as utility
-import wandb
 import logging
-from config.main_config import MainConfig
+from pathlib import Path
+
 from architecture.pruning_loop import start_pruning_experiment
+import architecture.utility as utility
+from config.main_config import MainConfig
+import hydra
+from omegaconf import OmegaConf
+import wandb
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +19,7 @@ def main(cfg: MainConfig) -> None:
         cfg (MainConfig): Hydra config object with all the settings. (Located in config/main_config.py)
     """
     logger.info(OmegaConf.to_yaml(cfg))
-    hydra_output_dir = Path(
-        hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
-    )
+    hydra_output_dir = Path(hydra.core.hydra_config.HydraConfig.get().runtime.output_dir)
     logger.info(f"Hydra output directory: {hydra_output_dir}")
 
     if cfg._seed.is_set:

@@ -1,7 +1,7 @@
-import torch
 from architecture.models.lenet_cifar import LeNet
 from architecture.models.resnet import ResNet18, ResNet50
 from config.main_config import MainConfig
+import torch
 from torch import nn
 
 

@@ -1,6 +1,7 @@
+from typing import Iterable
+
 import torch
 import torch.nn as nn
-from typing import Iterable
 
 
 def get_parameters_to_prune(

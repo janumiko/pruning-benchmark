@@ -1,7 +1,7 @@
-import torch
-from torchvision import transforms, datasets
-from torch.utils.data import Dataset, random_split, DataLoader
 from config.main_config import MainConfig
+import torch
+from torch.utils.data import DataLoader, Dataset
+from torchvision import datasets, transforms
 
 
 def get_cifar10(path: str, download: bool) -> tuple[Dataset, Dataset, Dataset]:
