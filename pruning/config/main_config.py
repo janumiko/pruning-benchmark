@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
 from typing import Any, Optional
-from .optimizers import AdamW, SGD, BaseOptimizer
-from .models import BaseModel, ResNet18_CIFAR10, ResNet18_CIFAR100, LeNet_CIFAR10
-from .datasets import BaseDataset, CIFAR10, CIFAR100
+
 from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
+
+from .datasets import CIFAR10, CIFAR100, BaseDataset
+from .models import BaseModel, LeNet_CIFAR10, ResNet18_CIFAR10, ResNet18_CIFAR100
+from .optimizers import SGD, AdamW, BaseOptimizer
 
 
 @dataclass

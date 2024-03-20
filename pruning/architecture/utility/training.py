@@ -1,9 +1,9 @@
 from pathlib import Path
 import random
 from typing import Callable
+
 import numpy as np
 import pandas as pd
-
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -15,7 +15,7 @@ def train_epoch(
     train_dl: DataLoader,
     optimizer: optim.Optimizer,
     loss_function: Callable,
-    device: torch.device = torch.device("cpu"),
+    device: torch.device,
 ) -> float:
     """Train a module for one epoch.
 
@@ -24,7 +24,7 @@ def train_epoch(
         train_dl (DataLoader): Dataloader for the train data.
         optimizer (optim.Optimizer): Optimizer instance.
         loss_function (Callable): Loss function callable.
-        device (torch.device, optional): Pytorch device. Defaults to torch.device("cpu").
+        device (torch.device, optional): Pytorch device.
 
     Returns:
         float: Average loss for the epoch.
@@ -56,7 +56,7 @@ def validate_epoch(
     valid_dl: DataLoader,
     loss_function: Callable,
     metrics_functions: dict[str, Callable],
-    device: torch.device = torch.device("cpu"),
+    device: torch.DeviceObjType,
 ) -> dict[str, float]:
     """Validate the model on given data.
     Args:
@@ -65,7 +65,7 @@ def validate_epoch(
         loss_function (Callable): Loss function callable.
         metrics_functions (dict[str, Callable]): Dictionary with metric_name : callable pairs.
         enable_autocast (bool, optional): Whether to use automatic mixed precision. Defaults to True.
-        device (torch.device, optional): Pytorch device. Defaults to torch.device("cpu").
+        device (torch.device, optional): Pytorch device.
     Returns:
         dict[str, float]: Dictionary with average loss and metrics for the validation data.
     """
@@ -123,12 +123,12 @@ class EarlyStopper:
     Patience is the number of epochs to wait for improvement before stopping.
     """
 
-    def __init__(self, patience: int, min_delta: int) -> None:
+    def __init__(self, patience: int, min_delta: float) -> None:
         """Initialize EarlyStopper.
 
         Args:
             patience (int): Number of epochs to wait for improvement.
-            min_delta (int): Delta which which is used to decide epoch as improvement.
+            min_delta (float): Delta which which is used to decide epoch as improvement.
         """
 
         self.patience = patience
