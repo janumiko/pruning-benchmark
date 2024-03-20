@@ -47,10 +47,10 @@ def calculate_parameters_sparsity(
             if (module, param_name) not in pruned_parameters:
                 continue
 
-            total_weights += float(param.nelement())
-            total_zero_weights += float(torch.sum(param == 0))
+            total_weights += param.nelement()
+            total_zero_weights += torch.sum(param == 0).item()
 
-    return (total_zero_weights / total_weights) * 100
+    return total_zero_weights / total_weights
 
 
 def calculate_total_sparsity(model: nn.Module) -> float:
@@ -68,10 +68,10 @@ def calculate_total_sparsity(model: nn.Module) -> float:
         if not param.requires_grad:
             continue
 
-        total_weights += float(param.nelement())
-        total_zero_weights += float(torch.sum(param == 0))
+        total_weights += param.nelement()
+        total_zero_weights += torch.sum(param == 0).item()
 
-    return (total_zero_weights / total_weights) * 100
+    return total_zero_weights / total_weights
 
 
 def calculate_pruning_ratio(model: nn.Module) -> float:
