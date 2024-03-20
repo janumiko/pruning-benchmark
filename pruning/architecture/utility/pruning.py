@@ -74,6 +74,36 @@ def calculate_total_sparsity(model: nn.Module) -> float:
     return (total_zero_weights / total_weights) * 100
 
 
+def calculate_pruning_ratio(model: nn.Module) -> float:
+    """
+    Calculates the pruning ratio for the pruned parameters and the model.
+
+    Args:
+        model (nn.Module): The model to calculate pruning for.
+
+    Returns:
+        Tuple[float, float]: The pruning ratio for the pruned parameters and the model.
+    """
+    pruned_parameters = 0
+    total_parameters = 0
+    total_model_parameters = sum(p.nelement() for p in model.parameters() if p.requires_grad)
+
+    named_buffer = dict(model.named_buffers())
+
+    for name, _ in model.named_parameters():
+        if not name.endswith("_orig"):
+            continue
+
+        param = named_buffer[name.replace("_orig", "_mask")]
+        total_parameters += param.nelement()
+        pruned_parameters += torch.sum(param == 0).item()
+
+    pruned = pruned_parameters / total_parameters
+    model_pruned = pruned_parameters / total_model_parameters
+
+    return pruned, model_pruned
+
+
 def calculate_parameters_amount(modules: Iterable[tuple[nn.Module, str]]) -> int:
     """Calculate the total amount of parameters in a list of modules.
 
