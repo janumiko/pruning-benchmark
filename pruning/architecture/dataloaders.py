@@ -29,19 +29,17 @@ def get_cifar10(path: str, download: bool) -> tuple[Dataset, Dataset, Dataset]:
         transform=train_transform,
     )
 
-    test_dataset = datasets.CIFAR10(
+    validate_dataset = datasets.CIFAR10(
         root=path,
         train=False,
         download=download,
         transform=test_transform,
     )
 
-    validate_dataset, test_dataset = random_split(test_dataset, [0.8, 0.2])
-
-    return train_dataset, validate_dataset, test_dataset
+    return train_dataset, validate_dataset
 
 
-def get_cifar100(path: str, download: bool) -> tuple[Dataset, Dataset, Dataset]:
+def get_cifar100(path: str, download: bool) -> tuple[Dataset, Dataset]:
     test_transform = transforms.Compose(
         [
             transforms.ToTensor(),
@@ -64,16 +62,14 @@ def get_cifar100(path: str, download: bool) -> tuple[Dataset, Dataset, Dataset]:
         transform=train_transform,
     )
 
-    test_dataset = datasets.CIFAR100(
+    validate_dataset = datasets.CIFAR100(
         root=path,
         train=False,
         download=download,
         transform=test_transform,
     )
 
-    validate_dataset, test_dataset = random_split(test_dataset, [0.8, 0.2])
-
-    return train_dataset, validate_dataset, test_dataset
+    return train_dataset, validate_dataset
 
 
 def get_dataset(
@@ -90,8 +86,8 @@ def get_dataset(
 
 def get_dataloaders(
     cfg: MainConfig,
-) -> tuple[DataLoader, DataLoader, DataLoader]:
-    train_dataset, validate_dataset, test_dataset = get_dataset(cfg)
+) -> tuple[DataLoader, DataLoader]:
+    train_dataset, validate_dataset = get_dataset(cfg)
 
     train_loader = DataLoader(
         train_dataset,
@@ -107,12 +103,5 @@ def get_dataloaders(
         pin_memory=cfg.dataloaders._pin_memory,
         num_workers=cfg.dataloaders._num_workers,
     )
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=cfg.dataloaders.batch_size,
-        shuffle=False,
-        pin_memory=cfg.dataloaders._pin_memory,
-        num_workers=cfg.dataloaders._num_workers,
-    )
 
-    return train_loader, validation_loader, test_loader
+    return train_loader, validation_loader

@@ -8,8 +8,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from .metrics import accuracy, top5_accuracy
-from .loggers import BaseMetricLogger
 
 
 def train_epoch(
@@ -57,76 +55,40 @@ def validate_epoch(
     module: nn.Module,
     valid_dl: DataLoader,
     loss_function: Callable,
-    loggers: list[BaseMetricLogger],
+    metrics_functions: dict[str, Callable],
     device: torch.device = torch.device("cpu"),
-) -> float:
+) -> dict[str, float]:
     """Validate the model on given data.
-
     Args:
-        module (nn.Module): PyTorch module.
+        model (nn.Module): PyTorch module.
         valid_dl (DataLoader): Dataloader for the validation data.
         loss_function (Callable): Loss function callable.
-        loggers (list[BaseMetricLogger]): List of metric loggers.
-        device (torch.device, optional): PyTorch device. Defaults to torch.device("cpu").
-
+        metrics_functions (dict[str, Callable]): Dictionary with metric_name : callable pairs.
+        enable_autocast (bool, optional): Whether to use automatic mixed precision. Defaults to True.
+        device (torch.device, optional): Pytorch device. Defaults to torch.device("cpu").
     Returns:
-        float: Average loss for the validation data.
+        dict[str, float]: Dictionary with average loss and metrics for the validation data.
     """
 
     module.eval()
+    metrics = {name: 0.0 for name in metrics_functions.keys()}
+    metrics["validation_loss"] = 0.0
 
     with torch.no_grad():
         for X, labels in valid_dl:
             X, labels = X.to(device), labels.to(device)
-
             # Compute prediction error
             pred = module(X)
             loss = loss_function(pred, labels)
 
-            for logger in loggers:
-                logger.log_batch(pred, labels)
+            metrics["validation_loss"] += loss.item()
+            for name, func in metrics_functions.items():
+                metrics[name] += func(pred, labels)
 
-    for logger in loggers:
-        logger.log_epoch()
+    for name, _ in metrics.items():
+        metrics[name] /= len(valid_dl)
 
-    return loss
-
-
-def test(
-    module: nn.Module,
-    test_dl: DataLoader,
-    loss_function: Callable,
-    device: torch.device = torch.device("cpu"),
-) -> tuple[float, float, float]:
-    """Test the model on the test dataset.
-
-    Args:
-        module (nn.Module): PyTorch module.
-        test_dl (DataLoader): Dataloader for the test data.
-        loss_function (Callable): Loss function callable.
-        device (torch.device, optional): PyTorch device. Defaults to torch.device("cpu").
-
-    Returns:
-        tuple[float, float]: Average loss and accuracy for the test data.
-    """
-
-    num_batches = len(test_dl)
-    module.eval()
-
-    test_loss, acc, top5_acc = 0.0, 0.0, 0.0
-    with torch.no_grad():
-        for X, y in test_dl:
-            X, y = X.to(device), y.to(device)
-            pred = module(X)
-            test_loss += loss_function(pred, y).item()
-            acc += accuracy(pred, y)
-            top5_acc += top5_accuracy(pred, y)
-
-    test_loss /= num_batches
-    acc /= num_batches
-    top5_acc /= num_batches
-
-    return (test_loss, acc, top5_acc)
+    return metrics
 
 
 def set_reproducibility(seed: int) -> None:

@@ -54,11 +54,9 @@ def strip_underscore_keys(input_dict: dict) -> dict:
     return filtered_dict
 
 
-def save_results_with_config(
-    results_df: pd.DataFrame,
+def create_config_dataframe(
     cfg: MainConfig,
-    output_path: Path,
-) -> None:
+) -> pd.DataFrame:
     """Save the results dataframe with the configuration settings to a csv file.
     It skips keys starting with underscore from the Hydra configuration.
 
@@ -69,18 +67,9 @@ def save_results_with_config(
         current_date_str (str): A string with the current date and time.
     """
 
-    dict_config = OmegaConf.to_container(cfg, resolve=True)
-    dict_config = strip_underscore_keys(dict_config)
-    dict_config = pd.json_normalize(dict_config)
+    dict_config = strip_underscore_keys(OmegaConf.to_container(cfg, resolve=True))
     logger.info(f"Normalized dictionary config {dict_config}")
+    config_df = pd.json_normalize(dict_config)
+    config_df = config_df.replace("???", None)
 
-    results_df = pd.concat([dict_config, results_df], axis=1)
-    results_df = results_df.replace("???", None)
-
-    logger.info(f"Saving results to {output_path}")
-    results_df.to_csv(
-        output_path,
-        mode="w",
-        header=True,
-        index=True,
-    )
+    return config_df

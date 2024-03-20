@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 from .optimizers import AdamW, SGD, BaseOptimizer
 from .models import BaseModel, ResNet18_CIFAR10, ResNet18_CIFAR100, LeNet_CIFAR10
 from .datasets import BaseDataset, CIFAR10, CIFAR100
@@ -18,13 +18,13 @@ class Pruning:
 @dataclass
 class Wandb:
     logging: bool = False
-    project: str = MISSING
+    project: Optional[str] = MISSING
 
 
 @dataclass
 class Seed:
     is_set: bool = False
-    value: int = MISSING
+    value: Optional[int] = MISSING
 
 
 @dataclass
