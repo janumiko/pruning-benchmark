@@ -11,16 +11,17 @@ from config.main_config import MainConfig
 from architecture.construct_model import construct_model
 from architecture.construct_optimizer import construct_optimizer
 from architecture.dataloaders import get_dataloaders
+from architecture.utility.summary import get_run_name
+import wandb
 from wandb.sdk.wandb_run import Run
 
 logger = logging.getLogger(__name__)
 
 
-def start_pruning_experiment(
-    cfg: MainConfig, out_directory: Path, wandb_run: Run
-) -> None:
+def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    run_name = get_run_name(cfg, current_date)
 
     base_model: nn.Module = construct_model(cfg).to(device)
     train_dl, valid_dl = get_dataloaders(cfg)
@@ -58,6 +59,15 @@ def start_pruning_experiment(
     }
 
     for i in range(cfg._repeat):
+        wandb_run = wandb.init(
+            project=cfg._wandb.project if cfg._wandb.logging else None,
+            mode="disabled" if not cfg._wandb.logging else "online",
+            group=run_name,
+            name=f"run_{i+1}/{cfg._repeat}",
+            job_type=cfg._wandb.job_type,
+            entity=cfg._wandb.entity,
+            config=cfg,
+        )
         logger.info(f"Repeat {i+1}/{cfg._repeat}")
 
         model = construct_model(cfg).to(device)
@@ -93,8 +103,8 @@ def start_pruning_experiment(
             early_stopper=early_stopper,
         )
 
-        utility.pruning.log_parameters_sparsity(model, pruning_parameters, logger)
-        utility.pruning.log_module_sparsity(model, logger)
+        parameters_sparsity = utility.pruning.log_parameters_sparsity(model, pruning_parameters, logger)
+        module_sparsity = utility.pruning.log_module_sparsity(model, logger)
 
         if cfg._save_checkpoints:
             current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
@@ -102,6 +112,8 @@ def start_pruning_experiment(
                 model.state_dict(),
                 out_directory / f"{cfg.model.name}_{i}_{current_date}.pth",
             )
+
+        wandb_run.finish()
 
 
 def prune_model(

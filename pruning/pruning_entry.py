@@ -26,12 +26,7 @@ def main(cfg: MainConfig) -> None:
     if cfg._seed.is_set:
         utility.training.set_reproducibility(cfg._seed.value)
 
-    wandb_run = wandb.init(
-        project=cfg._wandb.project if cfg._wandb.logging else None,
-        mode="disabled" if not cfg._wandb.logging else "online",
-    )
-
-    start_pruning_experiment(cfg, hydra_output_dir, wandb_run)
+    start_pruning_experiment(cfg, hydra_output_dir)
 
 
 if __name__ == "__main__":
