@@ -6,7 +6,6 @@ import architecture.utility as utility
 from config.main_config import MainConfig
 import hydra
 from omegaconf import OmegaConf
-import wandb
 
 logger = logging.getLogger(__name__)
 

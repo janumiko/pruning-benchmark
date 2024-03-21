@@ -8,12 +8,12 @@ from architecture.construct_optimizer import construct_optimizer
 from architecture.dataloaders import get_dataloaders
 import architecture.utility as utility
 from config.main_config import MainConfig
+from omegaconf import OmegaConf
 import torch
 from torch import nn
 import torch.nn.utils.prune as prune
-from wandb.sdk.wandb_run import Run
 import wandb
-from omegaconf import OmegaConf
+from wandb.sdk.wandb_run import Run
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +68,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
             name=f"run_{i+1}/{cfg._repeat}",
             job_type=cfg._wandb.job_type,
             entity=cfg._wandb.entity,
-            config=config
+            config=config,
         )
         logger.info(f"Repeat {i+1}/{cfg._repeat}")
 
