@@ -28,14 +28,8 @@ def construct_model(cfg: MainConfig) -> nn.Module:
         case ("lenet", _):
             return construct_lenet(cfg.model._checkpoint_path)
         case ("resnet50", _):
-            return construct_resnet50(
-                cfg.model._checkpoint_path, cfg.dataset._num_classes
-            )
+            return construct_resnet50(cfg.model._checkpoint_path, cfg.dataset._num_classes)
         case ("resnet18", _):
-            return construct_resnet18(
-                cfg.model._checkpoint_path, cfg.dataset._num_classes
-            )
+            return construct_resnet18(cfg.model._checkpoint_path, cfg.dataset._num_classes)
         case _:
-            raise ValueError(
-                f"Unknown model: {cfg.model.name} for dataset: {cfg.dataset.name}"
-            )
+            raise ValueError(f"Unknown model: {cfg.model.name} for dataset: {cfg.dataset.name}")

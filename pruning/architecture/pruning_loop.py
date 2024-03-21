@@ -8,17 +8,21 @@ from architecture.construct_optimizer import construct_optimizer
 from architecture.dataloaders import get_dataloaders
 import architecture.utility as utility
 from config.main_config import MainConfig
+from omegaconf import OmegaConf
 import torch
 from torch import nn
 import torch.nn.utils.prune as prune
+import wandb
 from wandb.sdk.wandb_run import Run
 
 logger = logging.getLogger(__name__)
 
 
-def start_pruning_experiment(cfg: MainConfig, out_directory: Path, wandb_run: Run) -> None:
+def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    run_name = utility.summary.get_run_name(cfg, current_date)
+    config = utility.summary.strip_underscore_keys(OmegaConf.to_container(cfg, resolve=True))
 
     base_model: nn.Module = construct_model(cfg).to(device)
     train_dl, valid_dl = get_dataloaders(cfg)
@@ -56,6 +60,16 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path, wandb_run: Ru
     }
 
     for i in range(cfg._repeat):
+
+        wandb_run = wandb.init(
+            project=cfg._wandb.project if cfg._wandb.logging else None,
+            mode="disabled" if not cfg._wandb.logging else "online",
+            group=run_name,
+            name=f"run_{i+1}/{cfg._repeat}",
+            job_type=cfg._wandb.job_type,
+            entity=cfg._wandb.entity,
+            config=config,
+        )
         logger.info(f"Repeat {i+1}/{cfg._repeat}")
 
         model = construct_model(cfg).to(device)
@@ -101,6 +115,8 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path, wandb_run: Ru
                 out_directory / f"{cfg.model.name}_{i}_{current_date}.pth",
             )
 
+        wandb_run.finish()
+
 
 def prune_model(
     model: nn.Module,
@@ -145,10 +161,17 @@ def prune_model(
             amount=pruning_amount,
         )
 
+        pruned, model_pruned = utility.pruning.calculate_pruning_ratio(model)
+        iteration_info = {
+            "iteration": iteration,
+            "pruned parameters": round(pruned, 4),
+            "model pruned": round(model_pruned, 4),
+        }
+
         for epoch in range(finetune_epochs):
             logger.info(f"Epoch {epoch + 1}/{finetune_epochs}")
 
-            utility.training.train_epoch(
+            train_loss = utility.training.train_epoch(
                 module=model,
                 train_dl=train_dl,
                 loss_function=loss_fn,
@@ -167,6 +190,9 @@ def prune_model(
             for key, value in metrics.items():
                 logger.info(f"{key}: {value:.4f}")
 
+            metrics["training loss"] = train_loss
+            metrics["epoch"] = epoch + 1
+            metrics.update(iteration_info)
             wandb_run.log(metrics)
 
             if early_stopper and early_stopper.check_stop(metrics["validation loss"]):

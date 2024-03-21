@@ -7,6 +7,27 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
+def get_run_name(cfg: MainConfig, current_date_str: str) -> str:
+    """Create a run name based on the configuration settings
+
+    Args:
+        cfg (MainConfig): Hydra configuration object (dataclass based).
+        current_date_str (str): A string with the current date and time.
+
+    Returns:
+        str: A string with the run name.
+    """
+    run_name = (
+        f"{cfg.model.name}_"
+        f"{cfg.dataset.name}_"
+        f"{cfg.pruning.iteration_rate}-"
+        f"{cfg.pruning.iterations}-"
+        f"{cfg.pruning.finetune_epochs}_"
+        f"{current_date_str}"
+    )
+    return run_name
+
+
 def log_summary(results_df: pd.DataFrame) -> None:
     """Log the summary of the results
 
