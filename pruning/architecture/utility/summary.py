@@ -3,19 +3,20 @@ import logging
 from config.main_config import MainConfig
 from omegaconf import OmegaConf
 import pandas as pd
+import wandb
 
 logger = logging.getLogger(__name__)
 
 
-def get_run_name(cfg: MainConfig, current_date_str: str) -> str:
-    """Create a run name based on the configuration settings
+def get_run_group_name(cfg: MainConfig, current_date_str: str) -> str:
+    """Create a group name for the runs based on the configuration settings.
 
     Args:
         cfg (MainConfig): Hydra configuration object (dataclass based).
         current_date_str (str): A string with the current date and time.
 
     Returns:
-        str: A string with the run name.
+        str: A string with the group name for the runs.
     """
     run_name = (
         f"{cfg.model.name}_"
@@ -94,3 +95,34 @@ def create_config_dataframe(
     config_df = config_df.replace("???", None)
 
     return config_df
+
+
+def create_wandb_run(cfg: MainConfig, group_name: str, run_name: str) -> wandb.sdk.wandb_run.Run:
+    """Create a W&B run based on the configuration settings.
+    In case logging is disabled, it will create a dry-run.
+
+    Args:
+        cfg (MainConfig): Hydra configuration object (dataclass based).
+        group_name (str): Group name for the run to belong.
+        run_name (str): Name of the run.
+
+    Returns:
+        wandb.sdk.wandb_run.Run: A W&B run object.
+    """
+
+    config = strip_underscore_keys(OmegaConf.to_container(cfg, resolve=True))
+
+    if cfg._wandb.logging:
+        wandb_run = wandb.init(
+            project=cfg._wandb.project,
+            mode="online",
+            group=group_name,
+            name=run_name,
+            job_type=cfg._wandb.job_type,
+            entity=cfg._wandb.entity,
+            config=config,
+        )
+    else:
+        wandb_run = wandb.init(mode="disabled")
+
+    return wandb_run

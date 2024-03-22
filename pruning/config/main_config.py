@@ -22,7 +22,7 @@ class Wandb:
     logging: bool = False
     project: Optional[str] = MISSING
     entity: Optional[str] = MISSING
-    job_type: Optional[str] = None
+    job_type: Optional[str] = MISSING
 
 
 @dataclass
