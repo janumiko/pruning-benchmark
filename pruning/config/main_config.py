@@ -21,7 +21,7 @@ class Pruning:
 class Wandb:
     logging: bool = False
     project: Optional[str] = MISSING
-    entity: Optional[str] = MISSING
+    entity: Optional[str] = None
     job_type: Optional[str] = None
 
 

@@ -8,11 +8,9 @@ from architecture.construct_optimizer import construct_optimizer
 from architecture.dataloaders import get_dataloaders
 import architecture.utility as utility
 from config.main_config import MainConfig
-from omegaconf import OmegaConf
 import torch
 from torch import nn
 import torch.nn.utils.prune as prune
-import wandb
 from wandb.sdk.wandb_run import Run
 
 logger = logging.getLogger(__name__)
@@ -21,8 +19,6 @@ logger = logging.getLogger(__name__)
 def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-    run_name = utility.summary.get_run_name(cfg, current_date)
-    config = utility.summary.strip_underscore_keys(OmegaConf.to_container(cfg, resolve=True))
 
     base_model: nn.Module = construct_model(cfg).to(device)
     train_dl, valid_dl = get_dataloaders(cfg)
@@ -60,17 +56,12 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
     }
 
     for i in range(cfg._repeat):
-
-        wandb_run = wandb.init(
-            project=cfg._wandb.project if cfg._wandb.logging else None,
-            mode="disabled" if not cfg._wandb.logging else "online",
-            group=run_name,
-            name=f"run_{i+1}/{cfg._repeat}",
-            job_type=cfg._wandb.job_type,
-            entity=cfg._wandb.entity,
-            config=config,
-        )
         logger.info(f"Repeat {i+1}/{cfg._repeat}")
+
+        run_group_name = utility.summary.get_run_group_name(cfg, current_date)
+        wandb_run = utility.summary.create_wandb_run(
+            cfg, run_group_name, f"repeat_{i+1}/{cfg._repeat}"
+        )
 
         model = construct_model(cfg).to(device)
         optimizer = construct_optimizer(cfg, model)
