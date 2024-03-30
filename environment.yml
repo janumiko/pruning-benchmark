@@ -208,4 +208,3 @@ dependencies:
   - zipp=3.17.0
   - zlib=1.2.13
   - zstd=1.5.5
-prefix: /home/bubuss/miniforge3/envs/ml-pruning
