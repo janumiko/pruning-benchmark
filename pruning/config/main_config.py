@@ -1,10 +1,12 @@
 from dataclasses import dataclass, field
-from typing import Any
-from .optimizers import AdamW, SGD, BaseOptimizer
-from .models import BaseModel, ResNet18_CIFAR10, ResNet18_CIFAR100, LeNet_CIFAR10
-from .datasets import BaseDataset, CIFAR10, CIFAR100
+from typing import Any, Optional
+
 from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
+
+from .datasets import CIFAR10, CIFAR100, BaseDataset
+from .models import BaseModel, LeNet_CIFAR10, ResNet18_CIFAR10, ResNet18_CIFAR100
+from .optimizers import SGD, AdamW, BaseOptimizer
 
 
 @dataclass
@@ -18,13 +20,15 @@ class Pruning:
 @dataclass
 class Wandb:
     logging: bool = False
-    project: str = MISSING
+    project: Optional[str] = MISSING
+    entity: Optional[str] = None
+    job_type: Optional[str] = None
 
 
 @dataclass
 class Seed:
     is_set: bool = False
-    value: int = MISSING
+    value: Optional[int] = MISSING
 
 
 @dataclass

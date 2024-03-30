@@ -1,5 +1,5 @@
-import torch
 from config.main_config import MainConfig
+import torch
 from torch import nn
 
 
