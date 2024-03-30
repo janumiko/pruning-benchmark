@@ -111,6 +111,9 @@ def create_wandb_run(cfg: MainConfig, group_name: str, run_name: str) -> wandb.s
     """
 
     config = strip_underscore_keys(OmegaConf.to_container(cfg, resolve=True))
+    config["target_total_pruned"] = (
+        config["pruning"]["iteration_rate"] * config["pruning"]["iterations"]
+    )
 
     if cfg._wandb.logging:
         wandb_run = wandb.init(

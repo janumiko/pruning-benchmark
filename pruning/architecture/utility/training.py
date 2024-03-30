@@ -72,7 +72,7 @@ def validate_epoch(
 
     module.eval()
     metrics = {name: 0.0 for name in metrics_functions.keys()}
-    metrics["validation_loss"] = 0.0
+    metrics["validation loss"] = 0.0
 
     with torch.no_grad():
         for X, labels in valid_dl:
@@ -81,7 +81,7 @@ def validate_epoch(
             pred = module(X)
             loss = loss_function(pred, labels)
 
-            metrics["validation_loss"] += loss.item()
+            metrics["validation loss"] += loss.item()
             for name, func in metrics_functions.items():
                 metrics[name] += func(pred, labels)
 
