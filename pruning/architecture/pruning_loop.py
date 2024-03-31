@@ -11,6 +11,7 @@ from config.main_config import MainConfig
 import torch
 from torch import nn
 import torch.nn.utils.prune as prune
+import wandb
 from wandb.sdk.wandb_run import Run
 
 logger = logging.getLogger(__name__)
@@ -25,7 +26,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
     cross_entropy = nn.CrossEntropyLoss()
 
     early_stopper = None
-    if cfg.pruning.early_stopping:
+    if cfg.early_stopper.enabled:
         early_stopper = utility.training.EarlyStopper(
             patience=cfg.early_stopper.patience,
             min_delta=cfg.early_stopper.min_delta,
@@ -36,23 +37,19 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         valid_dl=valid_dl,
         loss_function=cross_entropy,
         metrics_functions={
-            "top-1 accuracy": utility.metrics.accuracy,
-            "top-5 accuracy": utility.metrics.top5_accuracy,
+            "top1_accuracy": utility.metrics.accuracy,
+            "top5_accuracy": utility.metrics.top5_accuracy,
         },
         device=device,
     )
-    base_test_accuracy = base_metrics["top-1 accuracy"]
-    base_test_top5acc = base_metrics["top-5 accuracy"]
-    logger.info(f"Base top-1 accuracy: {base_test_accuracy:.2f}%")
-    logger.info(f"Base top-5 accuracy: {base_test_top5acc:.2f}%")
+    base_top1acc = base_metrics["top1_accuracy"]
+    base_top5acc = base_metrics["top5_accuracy"]
+    logger.info(f"Base top-1 accuracy: {base_top1acc:.2f}%")
+    logger.info(f"Base top-5 accuracy: {base_top5acc:.2f}%")
 
     metric_functions = {
-        "top-1 accuracy": utility.metrics.accuracy,
-        "top-5 accuracy": utility.metrics.top5_accuracy,
-        "top-1 difference": lambda out, labels: base_test_accuracy
-        - utility.metrics.accuracy(out, labels),
-        "top-5 difference": lambda out, labels: base_test_top5acc
-        - utility.metrics.top5_accuracy(out, labels),
+        "top1_accuracy": utility.metrics.accuracy,
+        "top5_accuracy": utility.metrics.top5_accuracy,
     }
 
     for i in range(cfg._repeat):
@@ -71,7 +68,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         pruning_amount = int(
             round(
                 utility.pruning.calculate_parameters_amount(pruning_parameters)
-                * cfg.pruning.iteration_rate
+                * (cfg.pruning.step_percent / 100)
             )
         )
         total_count = utility.pruning.get_parameter_count(model)
@@ -93,6 +90,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
             device=device,
             metrics_dict=metric_functions,
             wandb_run=wandb_run,
+            pruning_checkpoints=cfg._wandb.pruning_checkpoints,
             early_stopper=early_stopper,
         )
 
@@ -105,6 +103,9 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
                 model.state_dict(),
                 out_directory / f"{cfg.model.name}_{i}_{current_date}.pth",
             )
+
+        wandb_run.summary["base_top1_accuracy"] = base_top1acc
+        wandb_run.summary["base_top5_accuracy"] = base_top5acc
 
         wandb_run.finish()
 
@@ -122,6 +123,7 @@ def prune_model(
     valid_dl: torch.utils.data.DataLoader,
     metrics_dict: dict[str, Callable],
     wandb_run: Run,
+    pruning_checkpoints: tuple[int],
     device: torch.device,
     early_stopper: None | utility.training.EarlyStopper = None,
 ) -> None:
@@ -140,9 +142,12 @@ def prune_model(
         valid_dl (torch.utils.data.DataLoader): The validation dataloader.
         metrics_dict (dict[str, Callable]): The metrics to log during finetuning.
         wandb_run (Run): The wandb object to use for logging.
+        pruned_checkpoint (tuple[int]): The tuple of pruned checkpoints to save the metrics for.
         early_stopper (None | utility.training.EarlyStopper, optional): The early stopper to use for finetuning. Defaults to None.
         device (torch.device, optional): The device to use for training. Defaults to torch.device("cpu").
     """
+    checkpoints_data = []
+    checkpoints_keys = ["pruned_precent", "top1_accuracy", "top5_accuracy"]
 
     for iteration in range(iterations):
         logger.info(f"Pruning iteration {iteration + 1}/{iterations}")
@@ -155,8 +160,8 @@ def prune_model(
         pruned, model_pruned = utility.pruning.calculate_pruning_ratio(model)
         iteration_info = {
             "iteration": iteration,
-            "pruned parameters": round(pruned, 4),
-            "model pruned": round(model_pruned, 4),
+            "pruned_precent": round(pruned, 2),
+            "model_pruned_precent": round(model_pruned, 2),
         }
 
         for epoch in range(finetune_epochs):
@@ -181,15 +186,21 @@ def prune_model(
             for key, value in metrics.items():
                 logger.info(f"{key}: {value:.4f}")
 
-            metrics["training loss"] = train_loss
+            metrics["training_loss"] = train_loss
             metrics["epoch"] = epoch + 1
             metrics.update(iteration_info)
             wandb_run.log(metrics)
 
-            if early_stopper and early_stopper.check_stop(metrics["validation loss"]):
+            if early_stopper and early_stopper.check_stop(metrics["validation_loss"]):
                 logger.info(f"Early stopping after {epoch+1} epochs")
                 early_stopper.reset()
                 break
 
+        if round(pruned) in pruning_checkpoints:
+            checkpoints_data.append([metrics[key] for key in checkpoints_keys])
+
     for module, name in parameters_to_prune:
         prune.remove(module, name)
+
+    table = wandb.Table(data=checkpoints_data, columns=checkpoints_keys)
+    wandb_run.log({"pruning_checkpoints": table})

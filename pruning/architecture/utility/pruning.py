@@ -50,7 +50,7 @@ def calculate_parameters_sparsity(
             total_weights += param.nelement()
             total_zero_weights += torch.sum(param == 0).item()
 
-    return total_zero_weights / total_weights
+    return total_zero_weights / total_weights * 100
 
 
 def calculate_total_sparsity(model: nn.Module) -> float:
@@ -71,18 +71,18 @@ def calculate_total_sparsity(model: nn.Module) -> float:
         total_weights += param.nelement()
         total_zero_weights += torch.sum(param == 0).item()
 
-    return total_zero_weights / total_weights
+    return total_zero_weights / total_weights * 100
 
 
 def calculate_pruning_ratio(model: nn.Module) -> float:
     """
-    Calculates the pruning ratio for the pruned parameters and the model.
+    Calculates the pruning precentage for the pruned parameters and the model.
 
     Args:
         model (nn.Module): The model to calculate pruning for.
 
     Returns:
-        Tuple[float, float]: The pruning ratio for the pruned parameters and the model.
+        Tuple[float, float]: The pruning precentage for the pruned parameters and the model.
     """
     pruned_parameters = 0
     total_parameters = 0
@@ -98,8 +98,8 @@ def calculate_pruning_ratio(model: nn.Module) -> float:
         total_parameters += param.nelement()
         pruned_parameters += torch.sum(param == 0).item()
 
-    pruned = pruned_parameters / total_parameters
-    model_pruned = pruned_parameters / total_model_parameters
+    pruned = pruned_parameters / total_parameters * 100
+    model_pruned = pruned_parameters / total_model_parameters * 100
 
     return pruned, model_pruned
 
