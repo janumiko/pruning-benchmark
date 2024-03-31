@@ -18,7 +18,7 @@ class Pruning:
 
 @dataclass
 class Wandb:
-    logging: bool = True
+    logging: bool = False
     project: Optional[str] = MISSING
     entity: Optional[str] = None
     job_type: Optional[str] = None
