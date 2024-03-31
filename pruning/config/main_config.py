@@ -19,9 +19,9 @@ class Pruning:
 @dataclass
 class Wandb:
     logging: bool = True
-    project: Optional[str] = "Pruning"
-    entity: Optional[str] = "KowalskiTeam"
-    job_type: Optional[str] = "test"
+    project: Optional[str] = MISSING
+    entity: Optional[str] = None
+    job_type: Optional[str] = None
     pruning_checkpoints: tuple[float] = tuple(range(60, 100, 2))
 
 
