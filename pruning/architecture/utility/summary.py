@@ -21,7 +21,7 @@ def get_run_group_name(cfg: MainConfig, current_date_str: str) -> str:
     run_name = (
         f"{cfg.model.name}_"
         f"{cfg.dataset.name}_"
-        f"{cfg.pruning.iteration_rate}-"
+        f"{cfg.pruning.step_percent}-"
         f"{cfg.pruning.iterations}-"
         f"{cfg.pruning.finetune_epochs}_"
         f"{current_date_str}"
@@ -112,7 +112,7 @@ def create_wandb_run(cfg: MainConfig, group_name: str, run_name: str) -> wandb.s
 
     config = strip_underscore_keys(OmegaConf.to_container(cfg, resolve=True))
     config["target_total_pruned"] = (
-        config["pruning"]["iteration_rate"] * config["pruning"]["iterations"]
+        config["pruning"]["step_percent"] * config["pruning"]["iterations"]
     )
 
     if cfg._wandb.logging:

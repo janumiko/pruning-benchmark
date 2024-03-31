@@ -11,18 +11,18 @@ from .optimizers import SGD, AdamW, BaseOptimizer
 
 @dataclass
 class Pruning:
-    iteration_rate: float = MISSING
+    step_percent: int = MISSING
     iterations: int = MISSING
     finetune_epochs: int = MISSING
-    early_stopping: bool = False
 
 
 @dataclass
 class Wandb:
-    logging: bool = False
-    project: Optional[str] = MISSING
-    entity: Optional[str] = None
-    job_type: Optional[str] = None
+    logging: bool = True
+    project: Optional[str] = "Pruning"
+    entity: Optional[str] = "KowalskiTeam"
+    job_type: Optional[str] = "test"
+    pruning_checkpoints: tuple[float] = tuple(range(60, 100, 2))
 
 
 @dataclass
@@ -40,6 +40,7 @@ class Dataloaders:
 
 @dataclass
 class EarlyStopper:
+    enabled: bool = False
     patience: int = MISSING
     min_delta: float = 0.001
 
