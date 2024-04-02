@@ -1,3 +1,4 @@
+from timm.models.registry import register_model
 from torch import nn
 from torch.nn import functional as F
 
@@ -25,3 +26,8 @@ class LeNet(nn.Module):
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
+
+
+@register_model
+def lenet_cifar(num_classes: int) -> nn.Module:
+    return LeNet(num_classes=num_classes)
