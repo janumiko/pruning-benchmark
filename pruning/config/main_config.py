@@ -5,7 +5,13 @@ from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
 
 from .datasets import CIFAR10, CIFAR100, BaseDataset, ImageNet1K
-from .models import BaseModel, LeNet_CIFAR10, ResNet18_CIFAR10, ResNet18_CIFAR100
+from .models import (
+    BaseModel,
+    LeNet_CIFAR10,
+    ResNet18_CIFAR10,
+    ResNet18_CIFAR100,
+    ResNet18_ImageNet1K,
+)
 from .optimizers import SGD, AdamW, BaseOptimizer
 
 
@@ -80,6 +86,7 @@ config_store.store(group="optimizer", name="sgd", node=SGD)
 # models
 config_store.store(group="model", name="resnet18_cifar10", node=ResNet18_CIFAR10)
 config_store.store(group="model", name="resnet18_cifar100", node=ResNet18_CIFAR100)
+config_store.store(group="model", name="resnet18_imagenet1k", node=ResNet18_ImageNet1K)
 config_store.store(group="model", name="lenet_cifar10", node=LeNet_CIFAR10)
 
 # datasets
