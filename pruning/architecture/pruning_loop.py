@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Callable
 
 from architecture.construct_dataset import get_dataloaders
-from architecture.construct_model import construct_model
+from architecture.construct_model import construct_model, register_models
 from architecture.construct_optimizer import construct_optimizer
 import architecture.utility as utility
 from config.main_config import MainConfig
@@ -21,6 +21,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
+    register_models()
     base_model: nn.Module = construct_model(cfg).to(device)
     train_dl, valid_dl = get_dataloaders(cfg)
     cross_entropy = nn.CrossEntropyLoss()

@@ -11,7 +11,7 @@ class BaseModel:
 
 @dataclass
 class ResNet18_CIFAR10(BaseModel):
-    name: str = "resnet18"
+    name: str = "resnet18_cifar"
     _checkpoint_path: str = "checkpoints/resnet18_cifar10.pth"
 
 

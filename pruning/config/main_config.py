@@ -5,13 +5,6 @@ from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
 
 from .datasets import CIFAR10, CIFAR100, BaseDataset, ImageNet1K
-from .models import (
-    BaseModel,
-    LeNet_CIFAR10,
-    ResNet18_CIFAR10,
-    ResNet18_CIFAR100,
-    ResNet18_ImageNet1K,
-)
 from .optimizers import SGD, AdamW, BaseOptimizer
 
 
@@ -55,14 +48,15 @@ class EarlyStopper:
 class MainConfig:
     defaults: list[Any] = field(
         default_factory=lambda: [
+            "_self_",
             {"optimizer": "_"},
-            {"model": "_"},
             {"dataset": "_"},
         ]
     )
 
     dataset: BaseDataset = MISSING
-    model: BaseModel = MISSING
+    model: str = MISSING
+    _checkpoint_path: str = MISSING
     optimizer: BaseOptimizer = MISSING
 
     pruning: Pruning = field(default_factory=Pruning)
@@ -82,12 +76,6 @@ config_store.store(name="main_config", node=MainConfig)
 # optimizers
 config_store.store(group="optimizer", name="adamw", node=AdamW)
 config_store.store(group="optimizer", name="sgd", node=SGD)
-
-# models
-config_store.store(group="model", name="resnet18_cifar10", node=ResNet18_CIFAR10)
-config_store.store(group="model", name="resnet18_cifar100", node=ResNet18_CIFAR100)
-config_store.store(group="model", name="resnet18_imagenet1k", node=ResNet18_ImageNet1K)
-config_store.store(group="model", name="lenet_cifar10", node=LeNet_CIFAR10)
 
 # datasets
 config_store.store(group="dataset", name="cifar10", node=CIFAR10)
