@@ -72,12 +72,11 @@ def get_cifar100(path: str, download: bool) -> tuple[Dataset, Dataset]:
     return train_dataset, validate_dataset
 
 
-def get_imagenet1k(path: str, download: bool) -> tuple[Dataset, Dataset]:
+def get_imagenet1k(path: str) -> tuple[Dataset, Dataset]:
     """Constructs the ImageNet1K dataset.
 
     Args:
         path (str): Path to the dataset.
-        download (bool): Whether to download the dataset.
 
     Returns:
         tuple[Dataset, Dataset]: Train and validation datasets.
@@ -103,14 +102,12 @@ def get_imagenet1k(path: str, download: bool) -> tuple[Dataset, Dataset]:
     train_dataset = datasets.ImageNet(
         root=path,
         split="train",
-        download=download,
         transform=train_transform,
     )
 
     validate_dataset = datasets.ImageNet(
         root=path,
         split="val",
-        download=download,
         transform=test_transform,
     )
 
@@ -126,7 +123,7 @@ def get_dataset(
         case "cifar100":
             return get_cifar100(cfg.dataset._path, cfg.dataset._download)
         case "imagenet1k":
-            return get_imagenet1k(cfg.dataset._path, cfg.dataset._download)
+            return get_imagenet1k(cfg.dataset._path)
         case _:
             raise ValueError(f"Unknown dataset: {cfg.dataset.name}")
 
