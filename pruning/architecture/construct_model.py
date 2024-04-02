@@ -36,7 +36,7 @@ def construct_model(cfg: MainConfig) -> nn.Module:
             return construct_lenet(cfg.model._checkpoint_path)
         case ("resnet50", "cifar10" | "cifar100"):
             return construct_resnet50_cifar(cfg.model._checkpoint_path, cfg.dataset._num_classes)
-        case ("resnet18", "cinfar10" | "cifar100"):
+        case ("resnet18", "cifar10" | "cifar100"):
             return construct_resnet18_cifar(cfg.model._checkpoint_path, cfg.dataset._num_classes)
         case ("resnet18", "imagenet1k"):
             return construct_resnet18_imagenet(cfg.model._checkpoint_path)
