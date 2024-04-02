@@ -8,6 +8,7 @@ def register_models() -> None:
     """Register all the models in the timm registry by importing the module"""
     from architecture.models import lenet_cifar  # noqa: F401, I001
     from architecture.models import resnet_cifar  # noqa: F401
+    from architecture.models import resnet_imagenet  # noqa: F401
 
 
 def construct_model(cfg: MainConfig) -> nn.Module:

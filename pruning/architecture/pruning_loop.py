@@ -102,7 +102,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
             current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             torch.save(
                 model.state_dict(),
-                out_directory / f"{cfg.model.name}_{i}_{current_date}.pth",
+                out_directory / f"{cfg.model}_{i}_{current_date}.pth",
             )
 
         wandb_run.summary["base_top1_accuracy"] = base_top1acc
