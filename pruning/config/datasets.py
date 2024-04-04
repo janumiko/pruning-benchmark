@@ -8,7 +8,7 @@ class BaseDataset:
     name: str = MISSING
     _path: str = MISSING
     _num_classes: int = MISSING
-    _download: bool = True
+    _download: bool = False
 
 
 @dataclass
@@ -23,3 +23,10 @@ class CIFAR100(BaseDataset):
     name: str = "cifar100"
     _path: str = "datasets/cifar100"
     _num_classes: int = 100
+
+
+@dataclass
+class ImageNet1K(BaseDataset):
+    name: str = "imagenet1k"
+    _path: str = "datasets/imagenet1k"
+    _num_classes: int = 1000

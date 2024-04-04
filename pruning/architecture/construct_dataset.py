@@ -72,6 +72,48 @@ def get_cifar100(path: str, download: bool) -> tuple[Dataset, Dataset]:
     return train_dataset, validate_dataset
 
 
+def get_imagenet1k(path: str) -> tuple[Dataset, Dataset]:
+    """Constructs the ImageNet1K dataset.
+
+    Args:
+        path (str): Path to the dataset.
+
+    Returns:
+        tuple[Dataset, Dataset]: Train and validation datasets.
+    """
+
+    test_transform = transforms.Compose(
+        [
+            transforms.Resize(256),
+            transforms.CenterCrop(224),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
+    )
+
+    train_transform = transforms.Compose(
+        [
+            transforms.RandomResizedCrop(224),
+            transforms.RandomHorizontalFlip(),
+            test_transform,
+        ]
+    )
+
+    train_dataset = datasets.ImageNet(
+        root=path,
+        split="train",
+        transform=train_transform,
+    )
+
+    validate_dataset = datasets.ImageNet(
+        root=path,
+        split="val",
+        transform=test_transform,
+    )
+
+    return train_dataset, validate_dataset
+
+
 def get_dataset(
     cfg: MainConfig,
 ) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
@@ -80,6 +122,8 @@ def get_dataset(
             return get_cifar10(cfg.dataset._path, cfg.dataset._download)
         case "cifar100":
             return get_cifar100(cfg.dataset._path, cfg.dataset._download)
+        case "imagenet1k":
+            return get_imagenet1k(cfg.dataset._path)
         case _:
             raise ValueError(f"Unknown dataset: {cfg.dataset.name}")
 

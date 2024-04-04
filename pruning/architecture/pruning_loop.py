@@ -3,9 +3,9 @@ import logging
 from pathlib import Path
 from typing import Callable
 
-from architecture.construct_model import construct_model
+from architecture.construct_dataset import get_dataloaders
+from architecture.construct_model import construct_model, register_models
 from architecture.construct_optimizer import construct_optimizer
-from architecture.dataloaders import get_dataloaders
 import architecture.utility as utility
 from config.main_config import MainConfig
 import torch
@@ -21,6 +21,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
+    register_models()
     base_model: nn.Module = construct_model(cfg).to(device)
     train_dl, valid_dl = get_dataloaders(cfg)
     cross_entropy = nn.CrossEntropyLoss()
@@ -101,7 +102,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
             current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             torch.save(
                 model.state_dict(),
-                out_directory / f"{cfg.model.name}_{i}_{current_date}.pth",
+                out_directory / f"{cfg.model}_{i}_{current_date}.pth",
             )
 
         wandb_run.summary["base_top1_accuracy"] = base_top1acc
