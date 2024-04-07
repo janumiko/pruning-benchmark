@@ -1,17 +1,17 @@
 import datetime
 import logging
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Iterable, Mapping
 
 from architecture.construct_dataset import get_dataloaders
 from architecture.construct_model import construct_model, register_models
 from architecture.construct_optimizer import construct_optimizer
 import architecture.utility as utility
 from config.main_config import MainConfig
+import pandas as pd
 import torch
 from torch import nn
 import torch.nn.utils.prune as prune
-import wandb
 from wandb.sdk.wandb_run import Run
 
 logger = logging.getLogger(__name__)
@@ -53,12 +53,14 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         "top5_accuracy": utility.metrics.top5_accuracy,
     }
 
+    group_name = utility.summary.get_run_group_name(cfg, current_date)
+    results_list = []
+
     for i in range(cfg._repeat):
         logger.info(f"Repeat {i+1}/{cfg._repeat}")
 
-        run_group_name = utility.summary.get_run_group_name(cfg, current_date)
         wandb_run = utility.summary.create_wandb_run(
-            cfg, run_group_name, f"repeat_{i+1}/{cfg._repeat}"
+            cfg, group_name, f"repeat_{i+1}/{cfg._repeat}"
         )
 
         model = construct_model(cfg).to(device)
@@ -77,7 +79,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
             f"Iterations: {cfg.pruning.iterations}\nPruning {pruning_amount} parameters per step\nTotal parameter count: {total_count}"
         )
 
-        prune_model(
+        results = prune_model(
             model=model,
             method=prune.L1Unstructured,
             parameters_to_prune=pruning_parameters,
@@ -91,9 +93,11 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
             device=device,
             metrics_dict=metric_functions,
             wandb_run=wandb_run,
-            pruning_checkpoints=cfg._wandb.pruning_checkpoints,
+            pruning_checkpoints=cfg.pruning._pruning_checkpoints,
             early_stopper=early_stopper,
         )
+        results["repeat"] = i + 1
+        results_list.append(results)
 
         utility.pruning.log_parameters_sparsity(model, pruning_parameters, logger)
         utility.pruning.log_module_sparsity(model, logger)
@@ -110,24 +114,28 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
 
         wandb_run.finish()
 
+    utility.summary.save_checkpoint_results(
+        cfg, pd.concat(results_list), out_directory, group_name
+    )
+
 
 def prune_model(
     model: nn.Module,
     optimizer: torch.optim.Optimizer,
     method: prune.BasePruningMethod,
     loss_fn: nn.Module,
-    parameters_to_prune: list[tuple[nn.Module, str]],
+    parameters_to_prune: Iterable[tuple[nn.Module, str]],
     iterations: int,
     pruning_amount: int,
     finetune_epochs: int,
     train_dl: torch.utils.data.DataLoader,
     valid_dl: torch.utils.data.DataLoader,
-    metrics_dict: dict[str, Callable],
+    metrics_dict: Mapping[str, Callable],
     wandb_run: Run,
-    pruning_checkpoints: tuple[int],
+    pruning_checkpoints: Iterable[int],
     device: torch.device,
     early_stopper: None | utility.training.EarlyStopper = None,
-) -> None:
+) -> pd.DataFrame:
     """Prune the model using the given method.
 
     Args:
@@ -146,9 +154,11 @@ def prune_model(
         pruned_checkpoint (tuple[int]): The tuple of pruned checkpoints to save the metrics for.
         early_stopper (None | utility.training.EarlyStopper, optional): The early stopper to use for finetuning. Defaults to None.
         device (torch.device, optional): The device to use for training. Defaults to torch.device("cpu").
+
+    Returns:
+        pd.DataFrame: The metrics for the pruned checkpoints.
     """
-    checkpoints_data = []
-    checkpoints_keys = ["pruned_precent", "top1_accuracy", "top5_accuracy"]
+    checkpoints_data = pd.DataFrame(columns=["pruned_precent", "top1_accuracy", "top5_accuracy"])
 
     for iteration in range(iterations):
         logger.info(f"Pruning iteration {iteration + 1}/{iterations}")
@@ -198,10 +208,11 @@ def prune_model(
                 break
 
         if round(pruned) in pruning_checkpoints:
-            checkpoints_data.append([metrics[key] for key in checkpoints_keys])
+            checkpoints_data.loc[iteration] = {
+                key: metrics[key] for key in checkpoints_data.columns
+            }
 
     for module, name in parameters_to_prune:
         prune.remove(module, name)
 
-    table = wandb.Table(data=checkpoints_data, columns=checkpoints_keys)
-    wandb_run.log({"pruning_checkpoints": table})
+    return checkpoints_data

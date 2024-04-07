@@ -1,6 +1,6 @@
 from pathlib import Path
 import random
-from typing import Callable
+from typing import Callable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -55,7 +55,7 @@ def validate_epoch(
     module: nn.Module,
     valid_dl: DataLoader,
     loss_function: Callable,
-    metrics_functions: dict[str, Callable],
+    metrics_functions: Mapping[str, Callable],
     device: torch.DeviceObjType,
 ) -> dict[str, float]:
     """Validate the model on given data.
@@ -63,7 +63,7 @@ def validate_epoch(
         model (nn.Module): PyTorch module.
         valid_dl (DataLoader): Dataloader for the validation data.
         loss_function (Callable): Loss function callable.
-        metrics_functions (dict[str, Callable]): Dictionary with metric_name : callable pairs.
+        metrics_functions (Mapping[str, Callable]): Dictionary with metric_name : callable pairs.
         enable_autocast (bool, optional): Whether to use automatic mixed precision. Defaults to True.
         device (torch.device, optional): Pytorch device.
     Returns:
@@ -105,12 +105,12 @@ def set_reproducibility(seed: int) -> None:
     torch.backends.cudnn.benchmark = False
 
 
-def create_output_csv(path: Path, columns: list[str]) -> None:
+def create_output_csv(path: Path, columns: Sequence[str]) -> None:
     """Create a CSV file with the given columns
 
     Args:
         path (str): The path to the CSV file
-        columns (list[str]): The columns for the CSV file
+        columns (Sequence[str]): The columns for the CSV file
     """
     df = pd.DataFrame(columns=columns)
     df.to_csv(path, index=False, mode="w")

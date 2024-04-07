@@ -13,6 +13,7 @@ class Pruning:
     step_percent: int = MISSING
     iterations: int = MISSING
     finetune_epochs: int = MISSING
+    _pruning_checkpoints: tuple[float] = tuple(range(60, 100, 2))
 
 
 @dataclass
@@ -21,7 +22,6 @@ class Wandb:
     project: Optional[str] = MISSING
     entity: Optional[str] = None
     job_type: Optional[str] = None
-    pruning_checkpoints: tuple[float] = tuple(range(60, 100, 2))
 
 
 @dataclass
