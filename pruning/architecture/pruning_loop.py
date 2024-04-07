@@ -3,9 +3,9 @@ import logging
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
+from architecture.construct_dataset import get_dataloaders
 from architecture.construct_model import construct_model, register_models
 from architecture.construct_optimizer import construct_optimizer
-from architecture.dataloaders import get_dataloaders
 import architecture.utility as utility
 from config.main_config import MainConfig
 import pandas as pd

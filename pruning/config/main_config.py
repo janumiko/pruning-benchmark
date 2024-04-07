@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Iterable, Optional, Sequence
+from typing import Any, Optional
 
 from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
@@ -13,7 +13,7 @@ class Pruning:
     step_percent: int = MISSING
     iterations: int = MISSING
     finetune_epochs: int = MISSING
-    _pruning_checkpoints: Iterable[float] = tuple(range(60, 100, 2))
+    _pruning_checkpoints: tuple[float] = tuple(range(60, 100, 2))
 
 
 @dataclass
@@ -46,7 +46,7 @@ class EarlyStopper:
 
 @dataclass
 class MainConfig:
-    defaults: Sequence[Any] = field(
+    defaults: list[Any] = field(
         default_factory=lambda: [
             "_self_",
             {"optimizer": "_"},
