@@ -5,13 +5,13 @@ import torch.nn as nn
 
 
 def get_parameters_to_prune(
-    model: nn.Module, types_to_prune: tuple[nn.Module]
+    model: nn.Module, types_to_prune: Iterable[nn.Module]
 ) -> list[tuple[nn.Module, str]]:
     """Get the parameters to prune from a model.
 
     Args:
         model (nn.Module): A PyTorch model.
-        types_to_prune (tuple[nn.Module]): Tuple of module types to prune. Ex. nn.Linear, nn.Conv2d.
+        types_to_prune (Iterable[nn.Module]): Tuple of module types to prune. Ex. nn.Linear, nn.Conv2d.
 
     Returns:
         list[tuple[nn.Module, str]]: List of tuples containing the module and the parameter name.

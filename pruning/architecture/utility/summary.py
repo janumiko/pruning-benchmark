@@ -1,4 +1,6 @@
 import logging
+from pathlib import Path
+from typing import Mapping
 
 from config.main_config import MainConfig
 from omegaconf import OmegaConf
@@ -52,12 +54,12 @@ def log_summary(results_df: pd.DataFrame) -> None:
     logger.info(f"Mean top-5 difference {top5_diff_mean:.2f}% ± {top5_diff_std:.2f}%")
 
 
-def strip_underscore_keys(input_dict: dict) -> dict:
+def strip_underscore_keys(input_dict: Mapping) -> dict:
     """Creates a new dictionary without keys starting with underscore.
     In case the value is a dictionary, it will call itself recursively.
 
     Args:
-        input_dict (dict): A input dictionary to filter underscore prefix keys.
+        input_dict (Mapping): A input dictionary to filter underscore prefix keys.
 
     Returns:
         dict: A dictionary without keys starting with underscore.
@@ -68,7 +70,7 @@ def strip_underscore_keys(input_dict: dict) -> dict:
         if key.startswith("_"):
             continue
 
-        if isinstance(value, dict) and (filtered_value := strip_underscore_keys(value)):
+        if isinstance(value, Mapping) and (filtered_value := strip_underscore_keys(value)):
             filtered_dict[key] = filtered_value
         else:
             filtered_dict[key] = value
@@ -129,3 +131,24 @@ def create_wandb_run(cfg: MainConfig, group_name: str, run_name: str) -> wandb.s
         wandb_run = wandb.init(mode="disabled")
 
     return wandb_run
+
+
+def save_checkpoint_results(
+    cfg: MainConfig, results: pd.DataFrame, out_directory: Path, group_name: str
+) -> None:
+    """Save the results dataframe to a csv file.
+
+    Args:
+        cfg (MainConfig): Hydra configuration object (dataclass based).
+        results (pd.DataFrame): Dataframe with the results.
+        out_directory (Path): Path to the output directory.
+        group_name (str): Group name for the run to belong.
+    """
+    results.to_csv(out_directory / "pruning_results.csv", index=False)
+
+    wandb_run = create_wandb_run(cfg, group_name, "pruning_results")
+    table = wandb.Table(dataframe=results)
+    artifact = wandb.Artifact(f"{group_name}_pruning_results", type="results")
+    artifact.add(table, "pruning_results")
+    wandb_run.log_artifact(artifact)
+    wandb_run.finish()
