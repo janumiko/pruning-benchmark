@@ -21,7 +21,7 @@ def get_run_group_name(cfg: MainConfig, current_date_str: str) -> str:
         str: A string with the group name for the runs.
     """
     run_name = (
-        f"{cfg.model.name}_"
+        f"{cfg.model}_"
         f"{cfg.dataset.name}_"
         f"{cfg.pruning.step_percent}-"
         f"{cfg.pruning.iterations}-"
