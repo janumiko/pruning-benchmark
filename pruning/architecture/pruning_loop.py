@@ -155,6 +155,9 @@ def prune_model(
         pruned_checkpoint (tuple[int]): The tuple of pruned checkpoints to save the metrics for.
         early_stopper (None | utility.training.EarlyStopper, optional): The early stopper to use for finetuning. Defaults to None.
         device (torch.device, optional): The device to use for training. Defaults to torch.device("cpu").
+
+    Returns:
+        pd.DataFrame: The metrics for the pruned checkpoints.
     """
     checkpoints_data = pd.DataFrame(columns=["pruned_precent", "top1_accuracy", "top5_accuracy"])
 
