@@ -136,7 +136,7 @@ def create_wandb_run(cfg: MainConfig, group_name: str, run_name: str) -> wandb.s
 def save_checkpoint_results(
     cfg: MainConfig, results: pd.DataFrame, out_directory: Path, group_name: str
 ) -> None:
-    """Save the results dataframe to a csv file.
+    """Save the results dataframe to a csv file and log it to W&B.
 
     Args:
         cfg (MainConfig): Hydra configuration object (dataclass based).
