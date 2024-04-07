@@ -8,7 +8,7 @@ class BaseDataset:
     name: str = MISSING
     _path: str = MISSING
     _num_classes: int = MISSING
-    _download: bool = True
+    _download: bool = False
 
 
 @dataclass
