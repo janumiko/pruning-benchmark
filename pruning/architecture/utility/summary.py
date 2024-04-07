@@ -144,7 +144,7 @@ def save_checkpoint_results(
         out_directory (Path): Path to the output directory.
         group_name (str): Group name for the run to belong.
     """
-    results.to_csv(f"{out_directory}/pruning_results.csv", index=False)
+    results.to_csv(f"{out_directory}/pruning_results.csv", index=False, float_format="%.4f")
 
     wandb_run = create_wandb_run(cfg, group_name, "pruning_results")
     table = wandb.Table(dataframe=results)
