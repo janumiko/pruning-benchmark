@@ -21,6 +21,8 @@ PRUNING_CLASSES = (nn.Linear, nn.Conv2d, nn.BatchNorm2d)
 
 
 def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
+    assert cfg.pruning.iterator.end < 1, "The pruning iterator end value must be less than 1"
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
@@ -177,6 +179,7 @@ def prune_model(
             "model_pruned_precent": round(model_pruned, 2),
         }
 
+        epoch = 0
         for epoch in range(finetune_epochs):
             logger.info(f"Epoch {epoch + 1}/{finetune_epochs}")
 
@@ -196,21 +199,22 @@ def prune_model(
                 device=device,
             )
 
+            for key, value in metrics.items():
+                logger.info(f"{key}: {value:.4f}")
+
             # additonal epoch metrics
             metrics["training_loss"] = train_loss
             metrics["epoch"] = epoch + 1
-
-            for key, value in metrics.items():
-                logger.info(f"{key}: {value:.4f}")
 
             metrics.update(iteration_info)
             wandb_run.log(metrics)
 
             if early_stopper and early_stopper.check_stop(metrics["validation_loss"]):
                 logger.info(f"Early stopping after {epoch+1} epochs")
-                epochs[iteration] = epoch + 1
                 early_stopper.reset()
                 break
+
+        epochs.append(epoch + 1)
 
         if checkpoints_interval[0] * 100 <= pruned <= checkpoints_interval[1] * 100:
             # post epoch metrics

@@ -15,7 +15,7 @@ class PruningIterator:
 class Iterative(PruningIterator):
     name: str = "iterative"
     start: float = 0.0
-    end: float = 1.0
+    end: float = MISSING
     step: float = MISSING
 
 
@@ -26,3 +26,10 @@ class OneShot(PruningIterator):
     end: float = MISSING
     step: float = 0.0
 
+
+@dataclass
+class Logarithmic(PruningIterator):
+    name: str = "logarithmic"
+    start: float = 0.0
+    end: float = MISSING
+    step: float = MISSING

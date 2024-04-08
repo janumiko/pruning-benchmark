@@ -5,11 +5,12 @@ import numpy as np
 
 
 def iterative(start: float, end: float, step: float) -> Generator[float, None, None]:
-    """Generates a sequence of numbers in an iterative manner.
+    """
+    Generates a sequence of values from start to end with a given step size.
 
     Args:
         start (float): The starting value of the sequence.
-        end (float): The end value of the sequence.
+        end (float): The ending value of the sequence.
         step (float): The step size between consecutive values.
 
     Yields:
@@ -17,7 +18,11 @@ def iterative(start: float, end: float, step: float) -> Generator[float, None, N
 
     """
     num_steps = int((end - start) / step) - 1
-    for _ in np.linspace(start, end - step, num_steps):
+
+    if start != 0:
+        yield start
+
+    for _ in np.linspace(start, end, num_steps):
         yield step
 
 

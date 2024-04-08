@@ -5,7 +5,7 @@ from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
 
 from .datasets import CIFAR10, CIFAR100, BaseDataset, ImageNet1K
-from .iterators import Iterative, OneShot, PruningIterator
+from .iterators import Iterative, Logarithmic, OneShot, PruningIterator
 from .optimizers import SGD, AdamW, BaseOptimizer
 
 
@@ -86,3 +86,4 @@ config_store.store(group="dataset", name="imagenet1k", node=ImageNet1K)
 # pruning iterators
 config_store.store(group="pruning.iterator", name="iterative", node=Iterative)
 config_store.store(group="pruning.iterator", name="one-shot", node=OneShot)
+config_store.store(group="pruning.iterator", name="logarithmic", node=Logarithmic)
