@@ -79,6 +79,8 @@ def get_iterator(iterator: PruningIterator) -> Generator[float, None, None]:
     Raises:
         ValueError: If the specified iterator type is unknown.
     """
+    assert iterator.end < 1, "The pruning iterator end value must be less than 1"
+
     match iterator.name:
         case "iterative":
             return iterative(iterator.start, iterator.end, iterator.step)

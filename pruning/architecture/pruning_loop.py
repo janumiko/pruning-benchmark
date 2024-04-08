@@ -21,8 +21,6 @@ PRUNING_CLASSES = (nn.Linear, nn.Conv2d, nn.BatchNorm2d)
 
 
 def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
-    assert cfg.pruning.iterator.end < 1, "The pruning iterator end value must be less than 1"
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
