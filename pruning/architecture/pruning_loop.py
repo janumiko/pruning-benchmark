@@ -6,8 +6,10 @@ from typing import Callable, Iterable, Mapping
 from architecture.construct_dataset import get_dataloaders
 from architecture.construct_model import construct_model, register_models
 from architecture.construct_optimizer import construct_optimizer
+from architecture.pruning_methods.iterators import construct_iterator
 import architecture.utility as utility
 from config.main_config import MainConfig
+import numpy as np
 import pandas as pd
 import torch
 from torch import nn
@@ -15,6 +17,8 @@ import torch.nn.utils.prune as prune
 from wandb.sdk.wandb_run import Run
 
 logger = logging.getLogger(__name__)
+# TODO: somehow add the pruning classes to Hydra config
+PRUNING_CLASSES = (nn.Linear, nn.Conv2d, nn.BatchNorm2d)
 
 
 def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
@@ -65,41 +69,41 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
 
         model = construct_model(cfg).to(device)
         optimizer = construct_optimizer(cfg, model)
-        pruning_parameters = utility.pruning.get_parameters_to_prune(
-            model, (nn.Linear, nn.Conv2d, nn.BatchNorm2d)
-        )
-        pruning_amount = int(
-            round(
-                utility.pruning.calculate_parameters_amount(pruning_parameters)
-                * (cfg.pruning.step_percent / 100)
-            )
-        )
-        total_count = utility.pruning.get_parameter_count(model)
+
+        params_to_prune = utility.pruning.get_parameters_to_prune(model, PRUNING_CLASSES)
+        total_prune_params = utility.pruning.calculate_parameters_amount(params_to_prune)
+        pruning_steps = [
+            round(total_prune_params * step) for step in construct_iterator(cfg.pruning.iterator)
+        ]
+        total_params = utility.pruning.get_parameter_count(model)
+
         logger.info(
-            f"Iterations: {cfg.pruning.iterations}\nPruning {pruning_amount} parameters per step\nTotal parameter count: {total_count}"
+            f"Iterations: {len(pruning_steps)}\n"
+            f"Parameters to prune at each step: {pruning_steps}\n"
+            f"Total parameters to prune: {sum(pruning_steps)}/{total_params} "
+            f"({round(sum(pruning_steps)/total_params, 4)*100}%)"
         )
 
         results = prune_model(
             model=model,
             method=prune.L1Unstructured,
-            parameters_to_prune=pruning_parameters,
             optimizer=optimizer,
             loss_fn=cross_entropy,
-            iterations=cfg.pruning.iterations,
+            params_to_prune=params_to_prune,
+            pruning_steps=pruning_steps,
             finetune_epochs=cfg.pruning.finetune_epochs,
-            pruning_amount=pruning_amount,
             train_dl=train_dl,
             valid_dl=valid_dl,
             device=device,
             metrics_dict=metric_functions,
             wandb_run=wandb_run,
-            pruning_checkpoints=cfg.pruning._pruning_checkpoints,
+            checkpoints_interval=cfg.pruning._checkpoints_interval,
             early_stopper=early_stopper,
         )
         results["repeat"] = i + 1
         results_list.append(results)
 
-        utility.pruning.log_parameters_sparsity(model, pruning_parameters, logger)
+        utility.pruning.log_parameters_sparsity(model, params_to_prune, logger)
         utility.pruning.log_module_sparsity(model, logger)
 
         if cfg._save_checkpoints:
@@ -121,18 +125,17 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
 
 def prune_model(
     model: nn.Module,
-    optimizer: torch.optim.Optimizer,
     method: prune.BasePruningMethod,
+    optimizer: torch.optim.Optimizer,
     loss_fn: nn.Module,
-    parameters_to_prune: Iterable[tuple[nn.Module, str]],
-    iterations: int,
-    pruning_amount: int,
+    params_to_prune: Iterable[tuple[nn.Module, str]],
+    pruning_steps: Iterable[int],
     finetune_epochs: int,
     train_dl: torch.utils.data.DataLoader,
     valid_dl: torch.utils.data.DataLoader,
     metrics_dict: Mapping[str, Callable],
     wandb_run: Run,
-    pruning_checkpoints: Iterable[int],
+    checkpoints_interval: tuple[float, float],
     device: torch.device,
     early_stopper: None | utility.training.EarlyStopper = None,
 ) -> pd.DataFrame:
@@ -140,32 +143,34 @@ def prune_model(
 
     Args:
         model (nn.Module): The model to prune.
-        optimizer (torch.optim.Optimizer): The optimizer to use for finetuning.
         method (prune.BasePruningMethod): The method to use for pruning.
+        optimizer (torch.optim.Optimizer): The optimizer to use for finetuning.
         loss_fn (nn.Module): The loss function to use for finetuning.
-        parameters_to_prune (list[tuple[nn.Module, str]]): The parameters to prune.
-        iterations (int): The amount of iterations to prune the model.
-        pruning_amount (int): The amount of parameters to prune.
-        finetune_epochs (int): The amount of epochs to finetune the model.
+        params_to_prune (Iterable[tuple[nn.Module, str]]): The parameters to prune.
+        pruning_steps (Iterable[int]): The number of parameters to prune at each step.
+        finetune_epochs (int): The number of epochs to finetune the model.
         train_dl (torch.utils.data.DataLoader): The training dataloader.
         valid_dl (torch.utils.data.DataLoader): The validation dataloader.
-        metrics_dict (dict[str, Callable]): The metrics to log during finetuning.
+        metrics_dict (Mapping[str, Callable]): The metrics to log during finetuning.
         wandb_run (Run): The wandb object to use for logging.
-        pruned_checkpoint (tuple[int]): The tuple of pruned checkpoints to save the metrics for.
+        pruning_checkpoints (Iterable[int]): The checkpoints at which to save the metrics.
+        device (torch.device): The device to use for training.
         early_stopper (None | utility.training.EarlyStopper, optional): The early stopper to use for finetuning. Defaults to None.
-        device (torch.device, optional): The device to use for training. Defaults to torch.device("cpu").
 
     Returns:
         pd.DataFrame: The metrics for the pruned checkpoints.
     """
-    checkpoints_data = pd.DataFrame(columns=["pruned_precent", "top1_accuracy", "top5_accuracy"])
+    checkpoints_data = pd.DataFrame(
+        columns=["pruned_precent", "top1_accuracy", "top5_accuracy", "epoch_mean", "epoch_std"]
+    )
+    epochs = []
 
-    for iteration in range(iterations):
-        logger.info(f"Pruning iteration {iteration + 1}/{iterations}")
+    for iteration, step in enumerate(pruning_steps):
+        logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
         prune.global_unstructured(
-            parameters_to_prune,
+            params_to_prune,
             pruning_method=method,
-            amount=pruning_amount,
+            amount=step,
         )
 
         pruned, model_pruned = utility.pruning.calculate_pruning_ratio(model)
@@ -175,6 +180,7 @@ def prune_model(
             "model_pruned_precent": round(model_pruned, 2),
         }
 
+        epoch = 0
         for epoch in range(finetune_epochs):
             logger.info(f"Epoch {epoch + 1}/{finetune_epochs}")
 
@@ -197,8 +203,10 @@ def prune_model(
             for key, value in metrics.items():
                 logger.info(f"{key}: {value:.4f}")
 
+            # additonal epoch metrics
             metrics["training_loss"] = train_loss
             metrics["epoch"] = epoch + 1
+
             metrics.update(iteration_info)
             wandb_run.log(metrics)
 
@@ -207,12 +215,22 @@ def prune_model(
                 early_stopper.reset()
                 break
 
-        if round(pruned) in pruning_checkpoints:
+        epochs.append(epoch + 1)
+
+        if checkpoints_interval[0] * 100 <= pruned <= checkpoints_interval[1] * 100:
+            # post epoch metrics
+            metrics["epoch_mean"] = np.mean(epochs)
+            metrics["epoch_std"] = np.std(epochs)
+
             checkpoints_data.loc[iteration] = {
                 key: metrics[key] for key in checkpoints_data.columns
             }
 
-    for module, name in parameters_to_prune:
+    # summary info
+    summary = wandb_run.summary
+    summary["final_pruned_percent"] = round(pruned, 2)
+
+    for module, name in params_to_prune:
         prune.remove(module, name)
 
     return checkpoints_data

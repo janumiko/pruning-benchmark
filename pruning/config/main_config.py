@@ -5,15 +5,26 @@ from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
 
 from .datasets import CIFAR10, CIFAR100, BaseDataset, ImageNet1K
+from .iterators import (
+    IterativePruningStrategy,
+    LogarithmicPruningStrategy,
+    OneShotPruningStrategy,
+    PruningIterator,
+)
 from .optimizers import SGD, AdamW, BaseOptimizer
 
 
 @dataclass
+class Interval:
+    start: float
+    end: float
+
+
+@dataclass
 class Pruning:
-    step_percent: int = MISSING
-    iterations: int = MISSING
+    iterator: PruningIterator = MISSING
     finetune_epochs: int = MISSING
-    _pruning_checkpoints: tuple[float] = tuple(range(60, 100, 2))
+    _checkpoints_interval: Interval = field(default_factory=lambda: Interval(0.7, 1.0))
 
 
 @dataclass
@@ -51,6 +62,7 @@ class MainConfig:
             "_self_",
             {"optimizer": "_"},
             {"dataset": "_"},
+            {"pruning.iterator": "_"},
         ]
     )
 
@@ -81,3 +93,8 @@ config_store.store(group="optimizer", name="sgd", node=SGD)
 config_store.store(group="dataset", name="cifar10", node=CIFAR10)
 config_store.store(group="dataset", name="cifar100", node=CIFAR100)
 config_store.store(group="dataset", name="imagenet1k", node=ImageNet1K)
+
+# pruning iterators
+config_store.store(group="pruning.iterator", name="iterative", node=IterativePruningStrategy)
+config_store.store(group="pruning.iterator", name="one-shot", node=OneShotPruningStrategy)
+config_store.store(group="pruning.iterator", name="logarithmic", node=LogarithmicPruningStrategy)
