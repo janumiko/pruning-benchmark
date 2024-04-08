@@ -6,7 +6,7 @@ from typing import Callable, Iterable, Mapping
 from architecture.construct_dataset import get_dataloaders
 from architecture.construct_model import construct_model, register_models
 from architecture.construct_optimizer import construct_optimizer
-from architecture.pruning_methods.iterators import get_iterator
+from architecture.pruning_methods.iterators import construct_iterator
 import architecture.utility as utility
 from config.main_config import MainConfig
 import numpy as np
@@ -17,6 +17,7 @@ import torch.nn.utils.prune as prune
 from wandb.sdk.wandb_run import Run
 
 logger = logging.getLogger(__name__)
+# TODO: somehow add the pruning classes to Hydra config
 PRUNING_CLASSES = (nn.Linear, nn.Conv2d, nn.BatchNorm2d)
 
 
@@ -72,7 +73,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         params_to_prune = utility.pruning.get_parameters_to_prune(model, PRUNING_CLASSES)
         total_prune_params = utility.pruning.calculate_parameters_amount(params_to_prune)
         pruning_steps = [
-            round(total_prune_params * step) for step in get_iterator(cfg.pruning.iterator)
+            round(total_prune_params * step) for step in construct_iterator(cfg.pruning.iterator)
         ]
         total_params = utility.pruning.get_parameter_count(model)
 
@@ -159,7 +160,9 @@ def prune_model(
     Returns:
         pd.DataFrame: The metrics for the pruned checkpoints.
     """
-    checkpoints_data = pd.DataFrame(columns=["pruned_precent", "top1_accuracy", "top5_accuracy", "epoch_mean", "epoch_std"])
+    checkpoints_data = pd.DataFrame(
+        columns=["pruned_precent", "top1_accuracy", "top5_accuracy", "epoch_mean", "epoch_std"]
+    )
     epochs = []
 
     for iteration, step in enumerate(pruning_steps):

@@ -4,66 +4,50 @@ from config.iterators import PruningIterator
 import numpy as np
 
 
-def iterative(start: float, end: float, step: float) -> Generator[float, None, None]:
-    """
-    Generates a sequence of values from start to end with a given step size.
+class SequenceGeneratorBase:
+    def __init__(self, start: float, end: float, step: float) -> None:
+        self.start = start
+        self.end = end
+        self.step = step
 
-    Args:
-        start (float): The starting value of the sequence.
-        end (float): The ending value of the sequence.
-        step (float): The step size between consecutive values.
-
-    Yields:
-        float: The next value in the sequence.
-
-    """
-    num_steps = int((end - start) / step) - 1
-
-    if start != 0:
-        yield start
-
-    for _ in np.linspace(start, end, num_steps):
-        yield step
+    def __iter__(self) -> Generator[float, None, None]:
+        raise NotImplementedError
 
 
-def one_shot(start: float, end: float, step: float) -> Generator[float, None, None]:
-    """Generates a single value and yields it.
+class LinearSequenceGenerator(SequenceGeneratorBase):
+    def __iter__(self) -> Generator[float, None, None]:
+        num_steps = int((self.end - self.start) / self.step) - 1
 
-    Args:
-        start (float): The starting value.
-        end (float): The ending value.
-        step (float): The step size.
+        if self.start != 0:
+            yield self.start
 
-    Yields:
-        float: The end value.
-    """
-    yield end
+        for _ in np.linspace(self.start, self.end, num_steps):
+            yield self.step
 
 
-def logarithmic(start: float, end: float, step: float) -> Generator[float, None, None]:
-    """Generates logarithmically spaced values between a start and end value.
-
-    Args:
-        start (float): The starting value.
-        end (float): The ending value.
-        step (float): The step size.
-
-    Yields:
-        float: The next logarithmically spaced value.
-    """
-    num_values = int((end - start) / step)
-    total_sum = end - start
-
-    values = np.logspace(np.log10(start), np.log10(num_values), num=num_values, base=10)
-
-    values *= total_sum / np.sum(values)
-
-    yield start
-    for value in reversed(values):
-        yield round(value, 3)
+class OneShotSequenceGenerator(SequenceGeneratorBase):
+    def __iter__(self) -> Generator[float, None, None]:
+        yield self.end
 
 
-def get_iterator(iterator: PruningIterator) -> Generator[float, None, None]:
+class LogarithmicSequenceGenerator(SequenceGeneratorBase):
+    def __iter__(self) -> Generator[float, None, None]:
+        num_values = int((self.end - self.start) / self.step)
+        total_sum = self.end - self.start
+
+        if self.start != 0:
+            num_values += 1
+            yield self.start
+
+        values = np.logspace(np.log10(self.start), np.log10(num_values), num=num_values, base=10)
+
+        values *= total_sum / np.sum(values)
+
+        for value in reversed(values):
+            yield round(value, 3)
+
+
+def construct_iterator(iterator: PruningIterator) -> SequenceGeneratorBase:
     """
     Returns an iterator based on the specified name.
 
@@ -83,10 +67,10 @@ def get_iterator(iterator: PruningIterator) -> Generator[float, None, None]:
 
     match iterator.name:
         case "iterative":
-            return iterative(iterator.start, iterator.end, iterator.step)
+            return LinearSequenceGenerator(iterator.start, iterator.end, iterator.step)
         case "one-shot":
-            return one_shot(iterator.start, iterator.end, iterator.step)
+            return OneShotSequenceGenerator(iterator.start, iterator.end, iterator.step)
         case "logarithmic":
-            return logarithmic(iterator.start, iterator.end, iterator.step)
+            return LogarithmicSequenceGenerator(iterator.start, iterator.end, iterator.step)
         case _:
             raise ValueError(f"Unknown iterator type: {iterator.name}")

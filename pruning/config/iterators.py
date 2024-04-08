@@ -12,7 +12,7 @@ class PruningIterator:
 
 
 @dataclass
-class Iterative(PruningIterator):
+class IterativePruningStrategy(PruningIterator):
     name: str = "iterative"
     start: float = 0.0
     end: float = MISSING
@@ -20,7 +20,7 @@ class Iterative(PruningIterator):
 
 
 @dataclass
-class OneShot(PruningIterator):
+class OneShotPruningStrategy(PruningIterator):
     name: str = "one-shot"
     start: float = 0.0
     end: float = MISSING
@@ -28,7 +28,7 @@ class OneShot(PruningIterator):
 
 
 @dataclass
-class Logarithmic(PruningIterator):
+class LogarithmicPruningStrategy(PruningIterator):
     name: str = "logarithmic"
     start: float = 0.0
     end: float = MISSING
