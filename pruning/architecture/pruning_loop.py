@@ -153,7 +153,7 @@ def prune_model(
         valid_dl (torch.utils.data.DataLoader): The validation dataloader.
         metrics_dict (Mapping[str, Callable]): The metrics to log during finetuning.
         wandb_run (Run): The wandb object to use for logging.
-        pruning_checkpoints (Iterable[int]): The checkpoints at which to save the metrics.
+        checkpoints_interval (Interval): The interval to log checkpoints.
         device (torch.device): The device to use for training.
         early_stopper (None | utility.training.EarlyStopper, optional): The early stopper to use for finetuning. Defaults to None.
 
