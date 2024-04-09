@@ -8,7 +8,7 @@ from architecture.construct_model import construct_model, register_models
 from architecture.construct_optimizer import construct_optimizer
 from architecture.pruning_methods.iterators import construct_iterator
 import architecture.utility as utility
-from config.main_config import MainConfig
+from config.main_config import Interval, MainConfig
 import numpy as np
 import pandas as pd
 import torch
@@ -135,7 +135,7 @@ def prune_model(
     valid_dl: torch.utils.data.DataLoader,
     metrics_dict: Mapping[str, Callable],
     wandb_run: Run,
-    checkpoints_interval: tuple[float, float],
+    checkpoints_interval: Interval,
     device: torch.device,
     early_stopper: None | utility.training.EarlyStopper = None,
 ) -> pd.DataFrame:
@@ -153,7 +153,7 @@ def prune_model(
         valid_dl (torch.utils.data.DataLoader): The validation dataloader.
         metrics_dict (Mapping[str, Callable]): The metrics to log during finetuning.
         wandb_run (Run): The wandb object to use for logging.
-        pruning_checkpoints (Iterable[int]): The checkpoints at which to save the metrics.
+        checkpoints_interval (Interval): The interval to log checkpoints.
         device (torch.device): The device to use for training.
         early_stopper (None | utility.training.EarlyStopper, optional): The early stopper to use for finetuning. Defaults to None.
 
@@ -217,7 +217,7 @@ def prune_model(
 
         epochs.append(epoch + 1)
 
-        if checkpoints_interval[0] * 100 <= pruned <= checkpoints_interval[1] * 100:
+        if checkpoints_interval.start * 100 <= pruned <= checkpoints_interval.end * 100:
             # post epoch metrics
             metrics["epoch_mean"] = np.mean(epochs)
             metrics["epoch_std"] = np.std(epochs)
