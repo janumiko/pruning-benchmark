@@ -27,19 +27,28 @@ class ConstantStepScheduler(BasePruningStepScheduler):
 
     def __iter__(self) -> Generator[int, None, None]:
         num_steps = int((self.end - self.start) / self.step)
+
+        if self.start != 0:
+            yield int(self.start * self.inital_param_count)
+
         for _ in range(num_steps):
             yield int(self.step * self.inital_param_count)
 
 
 class IterativeStepScheduler(BasePruningStepScheduler):
     def __iter__(self) -> Generator[int, None, None]:
-        num_steps = int((self.end - self.start) / self.step) - 1
-
         if self.start != 0:
             yield int(self.start * self.inital_param_count)
 
-        for _ in np.linspace(self.start, self.end, num_steps):
-            yield int(self.step * self.inital_param_count)
+        pruned_count = int(self.start * self.inital_param_count)
+        current_step = 0
+        while pruned_count < self.end * self.inital_param_count:
+            current_step = int(self.step * (self.inital_param_count - pruned_count))
+
+            assert current_step <= 0, "The pruning step is too small."
+
+            pruned_count += current_step
+            yield current_step
 
 
 class OneShotStepScheduler(BasePruningStepScheduler):
@@ -56,7 +65,11 @@ class LogarithmicStepScheduler(BasePruningStepScheduler):
             num_values += 1
             yield int(self.start * self.inital_param_count)
 
-        values = np.logspace(np.log10(self.start), np.log10(num_values), num=num_values, base=10)
+        values = np.geomspace(
+            self.start + 1,
+            num_values,
+            num=num_values,
+        )
 
         values *= total_sum / np.sum(values)
 

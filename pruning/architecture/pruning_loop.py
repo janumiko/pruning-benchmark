@@ -179,7 +179,6 @@ def prune_model(
             "model_pruned_precent": round(model_pruned, 2),
         }
 
-        epoch = 0
         for epoch in range(finetune_epochs):
             logger.info(f"Epoch {epoch + 1}/{finetune_epochs}")
 
@@ -212,14 +211,16 @@ def prune_model(
             if early_stopper and early_stopper.check_stop(metrics["validation_loss"]):
                 logger.info(f"Early stopping after {epoch+1} epochs")
                 early_stopper.reset()
+                epochs.append(epoch + 1)
                 break
 
-        epochs.append(epoch + 1)
-
-        if checkpoints_interval.start * 100 <= pruned <= checkpoints_interval.end * 100:
+        if (
+            checkpoints_interval.start * 100 <= pruned <= checkpoints_interval.end * 100
+            and finetune_epochs > 0
+        ):
             # post epoch metrics
-            metrics["epoch_mean"] = np.mean(epochs)
-            metrics["epoch_std"] = np.std(epochs)
+            metrics["epoch_mean"] = np.mean(epochs) if epochs else finetune_epochs
+            metrics["epoch_std"] = np.std(epochs) if epochs else 0
 
             checkpoints_data.loc[iteration] = {
                 key: metrics[key] for key in checkpoints_data.columns
