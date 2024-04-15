@@ -4,7 +4,7 @@ from omegaconf import MISSING
 
 
 @dataclass
-class PruningIterator:
+class BasePruningSchedulerConfig:
     name: str = MISSING
     start: float = MISSING
     end: float = MISSING
@@ -12,24 +12,25 @@ class PruningIterator:
 
 
 @dataclass
-class IterativePruningStrategy(PruningIterator):
+class IterativeStepSchedulerConfig(BasePruningSchedulerConfig):
     name: str = "iterative"
     start: float = 0.0
-    end: float = MISSING
-    step: float = MISSING
 
 
 @dataclass
-class OneShotPruningStrategy(PruningIterator):
+class OneShotStepSchedulerConfig(BasePruningSchedulerConfig):
     name: str = "one-shot"
     start: float = 0.0
-    end: float = MISSING
     step: float = 0.0
 
 
 @dataclass
-class LogarithmicPruningStrategy(PruningIterator):
+class ConstantStepSchedulerConfig(BasePruningSchedulerConfig):
+    name: str = "constant"
+    start: float = 0.0
+
+
+@dataclass
+class LogarithmicStepSchedulerConfig(BasePruningSchedulerConfig):
     name: str = "logarithmic"
     start: float = 0.0
-    end: float = MISSING
-    step: float = MISSING

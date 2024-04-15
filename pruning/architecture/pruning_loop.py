@@ -6,7 +6,7 @@ from typing import Callable, Iterable, Mapping
 from architecture.construct_dataset import get_dataloaders
 from architecture.construct_model import construct_model, register_models
 from architecture.construct_optimizer import construct_optimizer
-from architecture.pruning_methods.iterators import construct_iterator
+from architecture.pruning_methods.schedulers import construct_step_scheduler
 import architecture.utility as utility
 from config.main_config import Interval, MainConfig
 import numpy as np
@@ -71,15 +71,14 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         optimizer = construct_optimizer(cfg, model)
 
         params_to_prune = utility.pruning.get_parameters_to_prune(model, PRUNING_CLASSES)
-        total_prune_params = utility.pruning.calculate_parameters_amount(params_to_prune)
-        pruning_steps = [
-            round(total_prune_params * step) for step in construct_iterator(cfg.pruning.iterator)
-        ]
+        total_pruning_params = utility.pruning.calculate_parameters_amount(params_to_prune)
+        pruning_steps = list(construct_step_scheduler(params_to_prune, cfg.pruning.scheduler))
         total_params = utility.pruning.get_parameter_count(model)
 
         logger.info(
             f"Iterations: {len(pruning_steps)}\n"
             f"Parameters to prune at each step: {pruning_steps}\n"
+            f"Pruning percentages at each step {[round(step / total_pruning_params, 4) for step in pruning_steps]}\n"
             f"Total parameters to prune: {sum(pruning_steps)}/{total_params} "
             f"({round(sum(pruning_steps)/total_params, 4)*100}%)"
         )
