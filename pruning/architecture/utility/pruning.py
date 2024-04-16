@@ -74,6 +74,29 @@ def calculate_total_sparsity(model: nn.Module) -> float:
     return total_zero_weights / total_weights * 100
 
 
+def count_unpruned_parameters(model: nn.Module) -> int:
+    """Count the number of unpruned parameters in the model.
+
+    Args:
+        model (nn.Module): A PyTorch model.
+
+    Returns:
+        int: The number of unpruned parameters.
+    """
+    pruned_parameters = 0
+
+    named_buffer = dict(model.named_buffers())
+
+    for name, _ in model.named_parameters():
+        if not name.endswith("_orig"):
+            continue
+
+        param = named_buffer[name.replace("_orig", "_mask")]
+        pruned_parameters += torch.sum(param == 1).item()
+
+    return pruned_parameters
+
+
 def calculate_pruning_ratio(model: nn.Module) -> float:
     """
     Calculates the pruning precentage for the pruned parameters and the model.
