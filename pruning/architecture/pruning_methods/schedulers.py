@@ -45,7 +45,7 @@ class IterativeStepScheduler(BasePruningStepScheduler):
         while pruned_count < self.end * self.inital_param_count:
             current_step = int(self.step * (self.inital_param_count - pruned_count))
 
-            assert current_step <= 0, "The pruning step is too small."
+            assert current_step > 0, "The pruning step is too small."
 
             pruned_count += current_step
             yield current_step
@@ -62,7 +62,6 @@ class LogarithmicStepScheduler(BasePruningStepScheduler):
         total_sum = self.end - self.start
 
         if self.start != 0:
-            num_values -= 1
             yield int(self.start * self.inital_param_count)
 
         values = np.geomspace(1, num_values, num=num_values)
