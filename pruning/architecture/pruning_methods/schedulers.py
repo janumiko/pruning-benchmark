@@ -62,14 +62,10 @@ class LogarithmicStepScheduler(BasePruningStepScheduler):
         total_sum = self.end - self.start
 
         if self.start != 0:
-            num_values += 1
+            num_values -= 1
             yield int(self.start * self.inital_param_count)
 
-        values = np.geomspace(
-            self.start + 1,
-            num_values,
-            num=num_values,
-        )
+        values = np.geomspace(1, num_values, num=num_values)
 
         values *= total_sum / np.sum(values)
 
