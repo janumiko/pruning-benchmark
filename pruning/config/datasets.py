@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Optional
 
 from omegaconf import MISSING
 
@@ -6,6 +7,7 @@ from omegaconf import MISSING
 @dataclass
 class BaseDataset:
     name: str = MISSING
+    resize_value: Optional[int] = None
     _path: str = MISSING
     _num_classes: int = MISSING
     _download: bool = False

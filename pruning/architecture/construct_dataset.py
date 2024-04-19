@@ -4,15 +4,29 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, transforms
 
 
-def get_cifar10(path: str, download: bool) -> tuple[Dataset, Dataset, Dataset]:
-    test_transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize(
-                mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010]
-            ),  # normalize the cifar10 images
-        ]
-    )
+def get_cifar10(
+    path: str, download: bool, resize_value: int | None = None
+) -> tuple[Dataset, Dataset]:
+    """Constructs the CIFAR10 dataset.
+
+    Args:
+        path (str): Path to the dataset.
+        download (bool): Should the dataset be downloaded.
+        resize_value (int | None, optional): Value to resize the images to. Defaults to None.
+
+    Returns:
+        tuple[Dataset, Dataset, Dataset]: Tuple of train and test datasets.
+    """
+
+    common_transformations = [
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010]),
+    ]
+
+    if resize_value is not None:
+        common_transformations.insert(0, transforms.Resize((resize_value, resize_value)))
+
+    test_transform = transforms.Compose(common_transformations)
 
     train_transform = transforms.Compose(
         [
@@ -39,13 +53,29 @@ def get_cifar10(path: str, download: bool) -> tuple[Dataset, Dataset, Dataset]:
     return train_dataset, validate_dataset
 
 
-def get_cifar100(path: str, download: bool) -> tuple[Dataset, Dataset]:
-    test_transform = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Normalize((0.5074, 0.4867, 0.4411), (0.2011, 0.1987, 0.2025)),
-        ]
-    )
+def get_cifar100(
+    path: str, download: bool, resize_value: int | None = None
+) -> tuple[Dataset, Dataset]:
+    """Constructs the CIFAR100 dataset.
+
+    Args:
+        path (str): Path to the dataset.
+        download (bool): Should the dataset be downloaded.
+        resize_value (int | None, optional): Value to resize the images to. Defaults to None.
+
+    Returns:
+        tuple[Dataset, Dataset]: Tuple of train and test datasets.
+    """
+
+    common_transformations = [
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.5071, 0.4867, 0.4408], std=[0.2675, 0.2565, 0.2761]),
+    ]
+
+    if resize_value is not None:
+        common_transformations.insert(0, transforms.Resize((resize_value, resize_value)))
+
+    test_transform = transforms.Compose(common_transformations)
 
     train_transform = transforms.Compose(
         [
@@ -72,11 +102,12 @@ def get_cifar100(path: str, download: bool) -> tuple[Dataset, Dataset]:
     return train_dataset, validate_dataset
 
 
-def get_imagenet1k(path: str) -> tuple[Dataset, Dataset]:
+def get_imagenet1k(path: str, resize_value: int | None = None) -> tuple[Dataset, Dataset]:
     """Constructs the ImageNet1K dataset.
 
     Args:
         path (str): Path to the dataset.
+        resize_value (int | None): The size to resize the images to. Defaults to None.
 
     Returns:
         tuple[Dataset, Dataset]: Train and validation datasets.
@@ -119,11 +150,15 @@ def get_dataset(
 ) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
     match cfg.dataset.name.lower():
         case "cifar10":
-            return get_cifar10(cfg.dataset._path, cfg.dataset._download)
+            return get_cifar10(
+                cfg.dataset._path, cfg.dataset._download, resize_value=cfg.dataset.resize_value
+            )
         case "cifar100":
-            return get_cifar100(cfg.dataset._path, cfg.dataset._download)
+            return get_cifar100(
+                cfg.dataset._path, cfg.dataset._download, resize_value=cfg.dataset.resize_value
+            )
         case "imagenet1k":
-            return get_imagenet1k(cfg.dataset._path)
+            return get_imagenet1k(cfg.dataset._path, resize_value=cfg.dataset.resize_value)
         case _:
             raise ValueError(f"Unknown dataset: {cfg.dataset.name}")
 
