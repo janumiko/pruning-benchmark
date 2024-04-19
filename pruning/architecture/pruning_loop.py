@@ -18,7 +18,7 @@ from wandb.sdk.wandb_run import Run
 
 logger = logging.getLogger(__name__)
 # TODO: somehow add the pruning classes to Hydra config
-PRUNING_CLASSES = (nn.Linear, nn.Conv2d, nn.BatchNorm2d)
+PRUNING_CLASSES = (nn.Linear, nn.Conv2d)
 
 
 def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
