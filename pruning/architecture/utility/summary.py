@@ -129,7 +129,12 @@ def create_wandb_run(cfg: MainConfig, group_name: str, run_name: str) -> wandb.s
 
 
 def save_checkpoint_results(
-    cfg: MainConfig, results: pd.DataFrame, out_directory: Path, group_name: str
+    cfg: MainConfig,
+    results: pd.DataFrame,
+    out_directory: Path,
+    group_name: str,
+    base_top1acc: float = 0.0,
+    base_top5acc: float = 0.0,
 ) -> None:
     """Save the results dataframe to a csv file and log it to W&B.
 
@@ -138,10 +143,16 @@ def save_checkpoint_results(
         results (pd.DataFrame): Dataframe with the results.
         out_directory (Path): Path to the output directory.
         group_name (str): Group name for the run to belong.
+        base_top1acc (float, optional): Base top-1 accuracy. Defaults to 0.0.
+        base_top5acc (float, optional): Base top-5 accuracy. Defaults to 0.0.
     """
     results.to_csv(f"{out_directory}/pruning_results.csv", index=False, float_format="%.4f")
 
     wandb_run = create_wandb_run(cfg, group_name, "pruning_results")
+    summary = wandb_run.summary
+    summary["base_top1_accuracy"] = base_top1acc
+    summary["base_top5_accuracy"] = base_top5acc
+
     table = wandb.Table(dataframe=results)
     artifact = wandb.Artifact(f"{group_name}_pruning_results", type="results")
     artifact.add(table, "pruning_results")
