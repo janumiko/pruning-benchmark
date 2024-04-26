@@ -5,13 +5,14 @@ from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
 
 from .datasets import CIFAR10, CIFAR100, BaseDataset, ImageNet1K
-from .iterators import (
-    IterativePruningStrategy,
-    LogarithmicPruningStrategy,
-    OneShotPruningStrategy,
-    PruningIterator,
-)
 from .optimizers import SGD, AdamW, BaseOptimizer
+from .schedulers import (
+    BasePruningSchedulerConfig,
+    ConstantStepSchedulerConfig,
+    IterativeStepSchedulerConfig,
+    LogarithmicStepSchedulerConfig,
+    OneShotStepSchedulerConfig,
+)
 
 
 @dataclass
@@ -22,7 +23,7 @@ class Interval:
 
 @dataclass
 class Pruning:
-    iterator: PruningIterator = MISSING
+    scheduler: BasePruningSchedulerConfig = MISSING
     finetune_epochs: int = MISSING
     _checkpoints_interval: Interval = field(default_factory=lambda: Interval(0.7, 1.0))
 
@@ -62,7 +63,7 @@ class MainConfig:
             "_self_",
             {"optimizer": "_"},
             {"dataset": "_"},
-            {"pruning.iterator": "_"},
+            {"pruning.scheduler": "_"},
         ]
     )
 
@@ -94,7 +95,10 @@ config_store.store(group="dataset", name="cifar10", node=CIFAR10)
 config_store.store(group="dataset", name="cifar100", node=CIFAR100)
 config_store.store(group="dataset", name="imagenet1k", node=ImageNet1K)
 
-# pruning iterators
-config_store.store(group="pruning.iterator", name="iterative", node=IterativePruningStrategy)
-config_store.store(group="pruning.iterator", name="one-shot", node=OneShotPruningStrategy)
-config_store.store(group="pruning.iterator", name="logarithmic", node=LogarithmicPruningStrategy)
+# pruning schedulers
+config_store.store(group="pruning.scheduler", name="iterative", node=IterativeStepSchedulerConfig)
+config_store.store(group="pruning.scheduler", name="one-shot", node=OneShotStepSchedulerConfig)
+config_store.store(
+    group="pruning.scheduler", name="logarithmic", node=LogarithmicStepSchedulerConfig
+)
+config_store.store(group="pruning.scheduler", name="constant", node=ConstantStepSchedulerConfig)

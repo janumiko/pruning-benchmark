@@ -6,7 +6,7 @@ from typing import Callable, Iterable, Mapping
 from architecture.construct_dataset import get_dataloaders
 from architecture.construct_model import construct_model, register_models
 from architecture.construct_optimizer import construct_optimizer
-from architecture.pruning_methods.iterators import construct_iterator
+from architecture.pruning_methods.schedulers import construct_step_scheduler
 import architecture.utility as utility
 from config.main_config import Interval, MainConfig
 import numpy as np
@@ -18,7 +18,7 @@ from wandb.sdk.wandb_run import Run
 
 logger = logging.getLogger(__name__)
 # TODO: somehow add the pruning classes to Hydra config
-PRUNING_CLASSES = (nn.Linear, nn.Conv2d, nn.BatchNorm2d)
+PRUNING_CLASSES = (nn.Linear, nn.Conv2d)
 
 
 def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
@@ -71,15 +71,14 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         optimizer = construct_optimizer(cfg, model)
 
         params_to_prune = utility.pruning.get_parameters_to_prune(model, PRUNING_CLASSES)
-        total_prune_params = utility.pruning.calculate_parameters_amount(params_to_prune)
-        pruning_steps = [
-            round(total_prune_params * step) for step in construct_iterator(cfg.pruning.iterator)
-        ]
+        total_pruning_params = utility.pruning.calculate_parameters_amount(params_to_prune)
+        pruning_steps = list(construct_step_scheduler(params_to_prune, cfg.pruning.scheduler))
         total_params = utility.pruning.get_parameter_count(model)
 
         logger.info(
             f"Iterations: {len(pruning_steps)}\n"
             f"Parameters to prune at each step: {pruning_steps}\n"
+            f"Pruning percentages at each step {[round(step / total_pruning_params, 4) for step in pruning_steps]}\n"
             f"Total parameters to prune: {sum(pruning_steps)}/{total_params} "
             f"({round(sum(pruning_steps)/total_params, 4)*100}%)"
         )
@@ -180,7 +179,6 @@ def prune_model(
             "model_pruned_precent": round(model_pruned, 2),
         }
 
-        epoch = 0
         for epoch in range(finetune_epochs):
             logger.info(f"Epoch {epoch + 1}/{finetune_epochs}")
 
@@ -213,14 +211,16 @@ def prune_model(
             if early_stopper and early_stopper.check_stop(metrics["validation_loss"]):
                 logger.info(f"Early stopping after {epoch+1} epochs")
                 early_stopper.reset()
+                epochs.append(epoch + 1)
                 break
 
-        epochs.append(epoch + 1)
-
-        if checkpoints_interval.start * 100 <= pruned <= checkpoints_interval.end * 100:
+        if (
+            checkpoints_interval.start * 100 <= pruned <= checkpoints_interval.end * 100
+            and finetune_epochs > 0
+        ):
             # post epoch metrics
-            metrics["epoch_mean"] = np.mean(epochs)
-            metrics["epoch_std"] = np.std(epochs)
+            metrics["epoch_mean"] = np.mean(epochs) if epochs else finetune_epochs
+            metrics["epoch_std"] = np.std(epochs) if epochs else 0
 
             checkpoints_data.loc[iteration] = {
                 key: metrics[key] for key in checkpoints_data.columns
