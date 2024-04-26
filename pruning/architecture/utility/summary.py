@@ -149,8 +149,9 @@ def save_checkpoint_results(
     results.to_csv(f"{out_directory}/pruning_results.csv", index=False, float_format="%.4f")
 
     wandb_run = create_wandb_run(cfg, group_name, "pruning_results")
-    wandb_run.summary["base_top1_accuracy"] = base_top1acc
-    wandb_run.summary["base_top5_accuracy"] = base_top5acc
+    summary = wandb_run.summary
+    summary["base_top1_accuracy"] = base_top1acc
+    summary["base_top5_accuracy"] = base_top5acc
 
     table = wandb.Table(dataframe=results)
     artifact = wandb.Artifact(f"{group_name}_pruning_results", type="results")
