@@ -68,27 +68,33 @@ def ln_structured(
         prune_percent (float): Percent of parameters to prune.
     """
 
-    for i, (module, name) in enumerate(parameters_to_prune):
+    for module, name in parameters_to_prune:
         match module:
-            case nn.Conv2d | nn.Linear:
-                pruning_amount = int(module._parameters[name].numel() * prune_percent)
-                prune.ln_structured(module, name, norm=norm, dim=dim, amount=pruning_amount)
+            case nn.Conv2d() | nn.Linear():
+                channels_to_prune = int(module._parameters[name].size(dim) * prune_percent)
+                logger.info(
+                    f"Pruning {channels_to_prune} channels from {module.__class__.__name__}.{name} dimension {dim} using {norm} norm."
+                )
+                prune.ln_structured(module, name, n=norm, dim=dim, amount=channels_to_prune)
+                prev_module = module
 
-                # apply the same mask to the corresponding batch norm layer
-                for module, _ in parameters_to_prune[i : i + 5]:
-                    if not isinstance(module, nn.BatchNorm2d):
-                        continue
+            case nn.BatchNorm2d() if name == "weight":
+                logger.info(
+                    f"Pruning {module.__class__.__name__}.{name} using {prev_module.__class__.__name__} mask."
+                )
+                prune.custom_from_mask(
+                    module,
+                    name,
+                    torch.all(prev_module.weight_mask.flatten(start_dim=1) == 1, dim=1),
+                )
 
-                    layer_mask = module.weight_mask
-                    batch_norm_mask = ~torch.all(
-                        layer_mask.view(layer_mask.size(0), -1) == 0, dim=1
-                    )
-                    prune.custom_from_mask(
-                        parameters_to_prune[i + 1][0], name="weight", mask=batch_norm_mask
-                    )
-                    break
-            case nn.BatchNorm2d:
-                continue
+            case nn.BatchNorm2d() if name == "bias":
+                prune.custom_from_mask(
+                    module,
+                    name,
+                    torch.all(prev_module.bias_mask.flatten(start_dim=1) == 1, dim=1),
+                )
+
             case _:
                 logger.warning(f"Unsupported module {module.__class__.__name__}")
 

@@ -79,7 +79,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
             TYPES_TO_PRUNE_WITH_BN = (*TYPES_TO_PRUNE, nn.BatchNorm2d)
 
         params_to_prune = utility.pruning.get_parameters_to_prune(model, TYPES_TO_PRUNE_WITH_BN)
-        pruning_steps = list(construct_step_scheduler(params_to_prune, cfg.pruning.scheduler))
+        pruning_steps = list(construct_step_scheduler(cfg.pruning.scheduler))
         total_params = utility.pruning.get_parameter_count(model)
 
         logger.info(
@@ -172,7 +172,7 @@ def prune_model(
 
     for iteration, step in enumerate(pruning_steps):
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
-        prune_module(params=params_to_prune, amount=step, pruning_cfg=pruning_config)
+        prune_module(params=params_to_prune, prune_percent=step, pruning_cfg=pruning_config)
 
         pruned, model_pruned = utility.pruning.calculate_pruning_ratio(model)
         iteration_info = {

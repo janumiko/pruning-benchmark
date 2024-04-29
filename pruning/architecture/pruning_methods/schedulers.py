@@ -65,13 +65,11 @@ class LogarithmicStepScheduler(BasePruningStepScheduler):
 
 
 def construct_step_scheduler(
-    module: nn.Module,
     scheduler_config: BasePruningSchedulerConfig,
 ) -> BasePruningStepScheduler:
     """Constructs a pruning step scheduler based on the configuration.
 
     Args:
-        module (nn.Module): The model to prune.
         scheduler_config (BasePruningSchedulerConfig): Configuration for the pruning scheduler.
 
     Raises:
