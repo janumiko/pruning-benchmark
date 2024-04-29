@@ -70,17 +70,23 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         model = construct_model(cfg).to(device)
         optimizer = construct_optimizer(cfg, model)
 
-        params_to_prune = utility.pruning.get_parameters_to_prune(model, TYPES_TO_PRUNE)
-        total_pruning_params = utility.pruning.calculate_parameters_amount(params_to_prune)
+        if (
+            "structured" in cfg.pruning.method.name
+            and "unstructured" not in cfg.pruning.method.name
+        ):
+            # add batchnorm layer to pruned parameters in case of structured
+            # needed to remove the corresponding batchnorm channels when pruning layers
+            TYPES_TO_PRUNE_WITH_BN = (*TYPES_TO_PRUNE, nn.BatchNorm2d)
+
+        params_to_prune = utility.pruning.get_parameters_to_prune(model, TYPES_TO_PRUNE_WITH_BN)
         pruning_steps = list(construct_step_scheduler(params_to_prune, cfg.pruning.scheduler))
         total_params = utility.pruning.get_parameter_count(model)
 
         logger.info(
             f"Iterations: {len(pruning_steps)}\n"
-            f"Parameters to prune at each step: {pruning_steps}\n"
-            f"Pruning percentages at each step {[round(step / total_pruning_params, 4) for step in pruning_steps]}\n"
-            f"Total parameters to prune: {sum(pruning_steps)}/{total_params} "
-            f"({round(sum(pruning_steps)/total_params, 4)*100}%)"
+            f"Pruning percentages at each step {pruning_steps}\n"
+            f"Total parameters to prune: {int(sum(pruning_steps * total_params))} "
+            f"({round(sum(pruning_steps) * 100, 2)}%)"
         )
 
         results = prune_model(
