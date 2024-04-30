@@ -92,7 +92,7 @@ def ln_structured(
                     name,
                     torch.all(prev_module.weight_mask.flatten(start_dim=1) == 1, dim=1),
                 )
-            case nn.BatchNorm2d():
+            case nn.BatchNorm2d() if name in {"weight", "bias"}:
                 logger.info(
                     f"Pruning {module.__class__.__name__}.{name} using {prev_module.__class__.__name__}.weight mask."
                 )
