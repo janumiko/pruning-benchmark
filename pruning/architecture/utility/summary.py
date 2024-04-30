@@ -24,6 +24,7 @@ def get_run_group_name(cfg: MainConfig, current_date_str: str) -> str:
         f"{cfg.model}_"
         f"{cfg.dataset.name}_"
         f"{cfg.pruning.scheduler.name}_"
+        f"{cfg.pruning.method.name}_"
         f"{current_date_str}"
     )
     return run_name

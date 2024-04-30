@@ -6,9 +6,11 @@ from typing import Callable, Iterable, Mapping
 from architecture.construct_dataset import get_dataloaders
 from architecture.construct_model import construct_model, register_models
 from architecture.construct_optimizer import construct_optimizer
+from architecture.pruning_methods.methods import prune_module
 from architecture.pruning_methods.schedulers import construct_step_scheduler
 import architecture.utility as utility
-from config.main_config import Interval, MainConfig
+from config.main_config import TYPES_TO_PRUNE, Interval, MainConfig
+from config.methods import BasePruningMethodConfig
 import numpy as np
 import pandas as pd
 import torch
@@ -17,8 +19,6 @@ import torch.nn.utils.prune as prune
 from wandb.sdk.wandb_run import Run
 
 logger = logging.getLogger(__name__)
-# TODO: somehow add the pruning classes to Hydra config
-PRUNING_CLASSES = (nn.Linear, nn.Conv2d)
 
 
 def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
@@ -70,22 +70,28 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         model = construct_model(cfg).to(device)
         optimizer = construct_optimizer(cfg, model)
 
-        params_to_prune = utility.pruning.get_parameters_to_prune(model, PRUNING_CLASSES)
-        total_pruning_params = utility.pruning.calculate_parameters_amount(params_to_prune)
-        pruning_steps = list(construct_step_scheduler(params_to_prune, cfg.pruning.scheduler))
+        if (
+            "structured" in cfg.pruning.method.name
+            and "unstructured" not in cfg.pruning.method.name
+        ):
+            # add batchnorm layer to pruned parameters in case of structured
+            # needed to remove the corresponding batchnorm channels when pruning layers
+            TYPES_TO_PRUNE_WITH_BN = (*TYPES_TO_PRUNE, nn.BatchNorm2d)
+
+        params_to_prune = utility.pruning.get_parameters_to_prune(model, TYPES_TO_PRUNE_WITH_BN)
+        pruning_steps = list(construct_step_scheduler(cfg.pruning.scheduler))
         total_params = utility.pruning.get_parameter_count(model)
 
         logger.info(
             f"Iterations: {len(pruning_steps)}\n"
-            f"Parameters to prune at each step: {pruning_steps}\n"
-            f"Pruning percentages at each step {[round(step / total_pruning_params, 4) for step in pruning_steps]}\n"
-            f"Total parameters to prune: {sum(pruning_steps)}/{total_params} "
-            f"({round(sum(pruning_steps)/total_params, 4)*100}%)"
+            f"Pruning percentages at each step {pruning_steps}\n"
+            f"Total parameters to prune: {int(sum(pruning_steps * total_params))} "
+            f"({round(sum(pruning_steps) * 100, 2)}%)"
         )
 
         results = prune_model(
             model=model,
-            method=prune.L1Unstructured,
+            pruning_config=cfg.pruning.method,
             optimizer=optimizer,
             loss_fn=cross_entropy,
             params_to_prune=params_to_prune,
@@ -124,7 +130,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
 
 def prune_model(
     model: nn.Module,
-    method: prune.BasePruningMethod,
+    pruning_config: BasePruningMethodConfig,
     optimizer: torch.optim.Optimizer,
     loss_fn: nn.Module,
     params_to_prune: Iterable[tuple[nn.Module, str]],
@@ -142,7 +148,7 @@ def prune_model(
 
     Args:
         model (nn.Module): The model to prune.
-        method (prune.BasePruningMethod): The method to use for pruning.
+        pruning_config (BasePruningMethodConfig): The pruning config for the pruning method to use.
         optimizer (torch.optim.Optimizer): The optimizer to use for finetuning.
         loss_fn (nn.Module): The loss function to use for finetuning.
         params_to_prune (Iterable[tuple[nn.Module, str]]): The parameters to prune.
@@ -166,11 +172,7 @@ def prune_model(
 
     for iteration, step in enumerate(pruning_steps):
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
-        prune.global_unstructured(
-            params_to_prune,
-            pruning_method=method,
-            amount=step,
-        )
+        prune_module(params=params_to_prune, prune_percent=step, pruning_cfg=pruning_config)
 
         pruned, model_pruned = utility.pruning.calculate_pruning_ratio(model)
         iteration_info = {
