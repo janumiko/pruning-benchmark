@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 from typing import Mapping
+import uuid
 
 from config.main_config import MainConfig
 from omegaconf import OmegaConf
@@ -20,12 +21,14 @@ def get_run_group_name(cfg: MainConfig, current_date_str: str) -> str:
     Returns:
         str: A string with the group name for the runs.
     """
+    uuid_str = uuid.uuid4().hex[:8]
     run_name = (
         f"{cfg.model}_"
         f"{cfg.dataset.name}_"
         f"{cfg.pruning.scheduler.name}_"
         f"{cfg.pruning.method.name}_"
-        f"{current_date_str}"
+        f"{current_date_str}_"
+        f"{uuid_str}"
     )
     return run_name
 
@@ -134,6 +137,7 @@ def save_checkpoint_results(
     results: pd.DataFrame,
     out_directory: Path,
     group_name: str,
+    iterations: int,
     base_top1acc: float = 0.0,
     base_top5acc: float = 0.0,
 ) -> None:
@@ -144,6 +148,7 @@ def save_checkpoint_results(
         results (pd.DataFrame): Dataframe with the results.
         out_directory (Path): Path to the output directory.
         group_name (str): Group name for the run to belong.
+        iterations (int): Number of iterations.
         base_top1acc (float, optional): Base top-1 accuracy. Defaults to 0.0.
         base_top5acc (float, optional): Base top-5 accuracy. Defaults to 0.0.
     """
@@ -151,6 +156,7 @@ def save_checkpoint_results(
 
     wandb_run = create_wandb_run(cfg, group_name, "pruning_results")
     summary = wandb_run.summary
+    summary["iterations"] = iterations
     summary["base_top1_accuracy"] = base_top1acc
     summary["base_top5_accuracy"] = base_top5acc
 

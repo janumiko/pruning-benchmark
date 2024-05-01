@@ -126,8 +126,15 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
 
         wandb_run.finish()
 
+    iterations = len(list(construct_step_scheduler(cfg.pruning.scheduler)))
     utility.summary.save_checkpoint_results(
-        cfg, pd.concat(results_list), out_directory, group_name, base_top1acc, base_top5acc
+        cfg,
+        pd.concat(results_list),
+        out_directory,
+        group_name,
+        iterations,
+        base_top1acc,
+        base_top5acc,
     )
 
 
