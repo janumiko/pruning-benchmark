@@ -36,10 +36,10 @@ class Pruning:
 
 @dataclass
 class Wandb:
-    logging: bool = False
-    project: Optional[str] = MISSING
-    entity: Optional[str] = None
-    job_type: Optional[str] = None
+    logging: bool = True
+    project: Optional[str] = "test"
+    entity: Optional[str] = "KowalskiTeam"
+    job_type: Optional[str] = "local"
 
 
 @dataclass
