@@ -70,13 +70,13 @@ def ln_structured(
 
     prev_module = parameters_to_prune[0][0]
     for module, name in parameters_to_prune:
+        if name in module._parameters:
+            param_name = name
+        else:
+            param_name = f"{name}_orig"
+
         match module:
             case nn.Conv2d() | nn.Linear() if name == "weight":
-                if name in module._parameters:
-                    param_name = name
-                else:
-                    param_name = f"{name}_orig"
-
                 channels_to_prune = int(module._parameters[param_name].size(dim) * prune_percent)
                 logger.info(
                     f"Pruning {channels_to_prune} channels from {module.__class__.__name__}.{name} dimension {dim} using {norm} norm."

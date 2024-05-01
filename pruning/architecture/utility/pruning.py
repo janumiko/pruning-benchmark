@@ -139,6 +139,11 @@ def calculate_parameters_amount(modules: Iterable[tuple[nn.Module, str]]) -> int
 
     total_parameters = 0
     for module, param_name in modules:
+        if param_name in module._parameters:
+            param_name = param_name
+        else:
+            param_name = f"{param_name}_orig"
+
         total_parameters += module._parameters[param_name].nelement()
 
     return total_parameters
