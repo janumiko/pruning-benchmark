@@ -76,9 +76,12 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         ):
             # add batchnorm layer to pruned parameters in case of structured
             # needed to remove the corresponding batchnorm channels when pruning layers
-            TYPES_TO_PRUNE_WITH_BN = (*TYPES_TO_PRUNE, nn.BatchNorm2d)
+            params_to_prune = utility.pruning.get_parameters_to_prune(
+                model, (*TYPES_TO_PRUNE, nn.BatchNorm2d)
+            )
+        else:
+            params_to_prune = utility.pruning.get_parameters_to_prune(model, TYPES_TO_PRUNE)
 
-        params_to_prune = utility.pruning.get_parameters_to_prune(model, TYPES_TO_PRUNE_WITH_BN)
         pruning_steps = list(construct_step_scheduler(cfg.pruning.scheduler))
         total_params = utility.pruning.get_parameter_count(model)
 
