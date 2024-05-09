@@ -178,7 +178,7 @@ def prune_model(
     checkpoints_data = pd.DataFrame(
         columns=["pruned_precent", "top1_accuracy", "top5_accuracy", "epoch_sum"]
     )
-    epoch_sum = 0
+    total_epoch = 0
 
     for iteration, step in enumerate(pruning_steps):
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
@@ -193,7 +193,7 @@ def prune_model(
 
         for epoch in range(finetune_epochs):
             logger.info(f"Epoch {epoch + 1}/{finetune_epochs}")
-            epoch_sum += 1
+            total_epoch += 1
 
             train_loss = utility.training.train_epoch(
                 module=model,
@@ -231,7 +231,7 @@ def prune_model(
             and finetune_epochs > 0
         ):
             # post epoch metrics
-            metrics["epoch_sum"] = epoch_sum
+            metrics["total_epoch"] = total_epoch
 
             checkpoints_data.loc[iteration] = {
                 key: metrics[key] for key in checkpoints_data.columns
@@ -240,6 +240,7 @@ def prune_model(
     # summary info
     summary = wandb_run.summary
     summary["final_pruned_percent"] = round(pruned, 2)
+    summary["total_epoch"] = total_epoch
 
     for module, name in params_to_prune:
         prune.remove(module, name)
