@@ -176,7 +176,7 @@ def prune_model(
         pd.DataFrame: The metrics for the pruned checkpoints.
     """
     checkpoints_data = pd.DataFrame(
-        columns=["pruned_precent", "top1_accuracy", "top5_accuracy", "epoch_mean", "epoch_std"]
+        columns=["pruned_precent", "top1_accuracy", "top5_accuracy", "epoch_sum"]
     )
     epoch_sum = 0
 
