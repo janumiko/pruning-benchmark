@@ -2,7 +2,6 @@ from typing import Generator
 
 from config.schedulers import BasePruningSchedulerConfig
 import numpy as np
-from torch import nn
 
 
 class BasePruningStepScheduler:
@@ -28,16 +27,17 @@ class ConstantStepScheduler(BasePruningStepScheduler):
 
 class IterativeStepScheduler(BasePruningStepScheduler):
     def __iter__(self) -> Generator[float, None, None]:
-        pruned_count = 1
+        nonpruned_percent = 1
 
         if self.start != 0:
             yield self.start
-            pruned_count -= round(self.start * pruned_count, 8)
+            nonpruned_percent -= round(self.start * nonpruned_percent, 8)
 
-        while pruned_count > (1 - self.end):
-            current_step = round(self.step * pruned_count, 8)
-            pruned_count -= current_step
-            pruned_count = round(pruned_count, 8)
+        # stop if pruned more than target pruning percentage - 1%
+        while nonpruned_percent - (1 - self.end) > 0.01:
+            current_step = round(self.step * nonpruned_percent, 8)
+            nonpruned_percent -= current_step
+            nonpruned_percent = round(nonpruned_percent, 8)
 
             assert current_step > 0, "The pruning step is too small."
             yield current_step
