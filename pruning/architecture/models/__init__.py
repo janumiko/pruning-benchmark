@@ -6,7 +6,7 @@ from pkgutil import iter_modules
 package_name = __name__
 
 # get the path of the current package
-package_path = Path(__file__).parent
+package_path = str(Path(__file__).parent)
 
 # iterate over all modules in the current package
 for _, module_name, _ in iter_modules([package_path]):
