@@ -176,7 +176,7 @@ def prune_model(
         pd.DataFrame: The metrics for the pruned checkpoints.
     """
     checkpoints_data = pd.DataFrame(
-        columns=["pruned_precent", "top1_accuracy", "top5_accuracy", "epoch_sum"]
+        columns=["pruned_precent", "top1_accuracy", "top5_accuracy", "total_epoch"]
     )
     total_epoch = 0
 
@@ -240,6 +240,7 @@ def prune_model(
     # summary info
     summary = wandb_run.summary
     summary["final_pruned_percent"] = round(pruned, 2)
+    summary["total_epoch"] = total_epoch
 
     for module, name in params_to_prune:
         prune.remove(module, name)
