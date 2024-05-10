@@ -240,6 +240,7 @@ def prune_model(
     # summary info
     summary = wandb_run.summary
     summary["final_pruned_percent"] = round(pruned, 2)
+    summary["total_epoch"] = total_epoch
 
     for module, name in params_to_prune:
         prune.remove(module, name)
