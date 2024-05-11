@@ -69,7 +69,7 @@ def get_cifar100(
 
     common_transformations = [
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5071, 0.4867, 0.4408], std=[0.2675, 0.2565, 0.2761]),
+        transforms.Normalize(mean=[0.5074, 0.4867, 0.4411], std=[0.2011, 0.1987, 0.2025]),
     ]
 
     if resize_value is not None:
