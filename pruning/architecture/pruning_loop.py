@@ -88,7 +88,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         logger.info(
             f"Iterations: {len(pruning_steps)}\n"
             f"Pruning percentages at each step {pruning_steps}\n"
-            f"Total parameters to prune: {int(sum(pruning_steps * total_params))} "
+            f"Total parameters to prune: {int(sum(pruning_steps) * total_params)} "
             f"({round(sum(pruning_steps) * 100, 2)}%)"
         )
 
