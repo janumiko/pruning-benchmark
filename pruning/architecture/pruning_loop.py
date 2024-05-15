@@ -164,7 +164,6 @@ def prune_model(
         wandb_run (Run): The wandb object to use for logging.
         checkpoints_interval (Interval): The interval to log checkpoints.
         device (torch.device): The device to use for training.
-        early_stopper (None | utility.training.EarlyStopper, optional): The early stopper to use for finetuning. Defaults to None.
 
     Returns:
         pd.DataFrame: The metrics for the pruned checkpoints.
