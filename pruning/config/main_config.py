@@ -7,6 +7,7 @@ from torch import nn
 
 from .datasets import CIFAR10, CIFAR100, BaseDataset, ImageNet1K
 from .methods import BasePruningMethodConfig, GlobalL1UnstructuredConfig, LnStructuredConfig
+from .metrics import BaseMetric, Top1Accuracy, Top5Accuracy, ValidationLoss
 from .optimizers import SGD, AdamW, BaseOptimizer
 from .schedulers import (
     BasePruningSchedulerConfig,
@@ -56,10 +57,13 @@ class Dataloaders:
 
 
 @dataclass
-class EarlyStopper:
+class EarlyStopperConfig:
     enabled: bool = False
-    patience: int = MISSING
+    patience: int = 5
     min_delta: float = 0.001
+    metric: BaseMetric = field(
+        default_factory=lambda: BaseMetric("validation_loss", is_decreasing=True)
+    )
 
 
 @dataclass
@@ -71,6 +75,7 @@ class MainConfig:
             {"dataset": "_"},
             {"pruning.scheduler": "_"},
             {"pruning.method": "_"},
+            {"early_stopper.metric": "_"},
         ]
     )
 
@@ -80,7 +85,7 @@ class MainConfig:
     optimizer: BaseOptimizer = MISSING
 
     pruning: Pruning = field(default_factory=Pruning)
-    early_stopper: EarlyStopper = field(default_factory=EarlyStopper)
+    early_stopper: EarlyStopperConfig = field(default_factory=EarlyStopperConfig)
     dataloaders: Dataloaders = field(default_factory=Dataloaders)
 
     _repeat: int = 1
@@ -129,3 +134,8 @@ config_store.store(group="pruning.method", name=LnStructuredConfig().name, node=
 config_store.store(
     group="pruning.method", name=GlobalL1UnstructuredConfig().name, node=GlobalL1UnstructuredConfig
 )
+
+# metrics
+config_store.store(group="early_stopper.metric", name=Top1Accuracy().name, node=Top1Accuracy)
+config_store.store(group="early_stopper.metric", name=Top5Accuracy().name, node=Top5Accuracy)
+config_store.store(group="early_stopper.metric", name=ValidationLoss().name, node=ValidationLoss)

@@ -35,7 +35,6 @@ class IterativeStepScheduler(BasePruningStepScheduler):
 
         # stop if pruned more than target pruning percentage - 0.1%
         while nonpruned_percent - (1 - self.end) > 0.001:
-            print(nonpruned_percent - (1 - self.end))
             current_step = round(self.step * nonpruned_percent, 8)
             nonpruned_percent -= current_step
             nonpruned_percent = round(nonpruned_percent, 8)
