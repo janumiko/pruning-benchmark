@@ -16,7 +16,7 @@ class BasePruningStepScheduler:
 
 class ConstantStepScheduler(BasePruningStepScheduler):
     def __iter__(self) -> Generator[float, None, None]:
-        num_steps = int((self.end - self.start) / self.step)
+        num_steps = round((self.end - self.start) / self.step)
 
         if self.start != 0:
             yield self.start
@@ -50,7 +50,7 @@ class OneShotStepScheduler(BasePruningStepScheduler):
 
 class LogarithmicStepScheduler(BasePruningStepScheduler):
     def __iter__(self) -> Generator[float, None, None]:
-        num_values = int((self.end - self.start) / self.step)
+        num_values = round((self.end - self.start) / self.step)
         total_sum = self.end - self.start
 
         if self.start != 0:
