@@ -229,11 +229,11 @@ def prune_model(
             if cfg.early_stopper.enabled and early_stopper.check_stop(
                 metrics[cfg.early_stopper.metric.name]
             ):
-                logger.info(
-                    f"Early stopping after {epoch+1} epochs: best checkpoint saved on epoch: {best_checkpoint['epoch']}"
-                )
+                logger.info(f"Early stopping after {epoch+1} epochs")
                 early_stopper.reset()
                 break
+
+        logger.info(f"Best checkpoint saved on epoch: {best_checkpoint['epoch']}")
 
         if (
             cfg.pruning._checkpoints_interval.start * 100
