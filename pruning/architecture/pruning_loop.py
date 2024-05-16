@@ -166,7 +166,19 @@ def prune_model(
         is_decreasing=cfg.early_stopper.metric.is_decreasing,
     )
 
+    checkpoint_criterion = cfg.best_checkpoint_criterion
+    best_checkpoint = {
+        "state_dict": model.state_dict(),
+        checkpoint_criterion.name: checkpoint_criterion._default_value,
+        "epoch": 0,
+    }
+
     for iteration, step in enumerate(pruning_steps):
+        # reset optimizer in each pruning iteration
+        # load last best checkpoint state dict
+        optimizer = construct_optimizer(cfg, model)
+        model.load_state_dict(best_checkpoint["state_dict"])
+
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
         prune_module(params=params_to_prune, prune_percent=step, pruning_cfg=cfg.pruning.method)
 
@@ -176,9 +188,6 @@ def prune_model(
             "pruned_precent": round(pruned, 2),
             "model_pruned_precent": round(model_pruned, 2),
         }
-
-        # reset optimizer in each pruning iteration
-        optimizer = construct_optimizer(cfg, model)
 
         for epoch in range(cfg.pruning.finetune_epochs):
             logger.info(f"Epoch {epoch + 1}/{cfg.pruning.finetune_epochs}")
@@ -207,13 +216,22 @@ def prune_model(
             metrics["training_loss"] = train_loss
             metrics["epoch"] = epoch + 1
 
+            if checkpoint_criterion.is_decreasing == (
+                metrics[checkpoint_criterion.name] < best_checkpoint[checkpoint_criterion.name]
+            ):
+                best_checkpoint["state_dict"] = model.state_dict()
+                best_checkpoint[checkpoint_criterion.name] = metrics[checkpoint_criterion.name]
+                best_checkpoint["epoch"] = epoch
+
             metrics.update(iteration_info)
             wandb_run.log(metrics)
 
             if cfg.early_stopper.enabled and early_stopper.check_stop(
                 metrics[cfg.early_stopper.metric.name]
             ):
-                logger.info(f"Early stopping after {epoch+1} epochs")
+                logger.info(
+                    f"Early stopping after {epoch+1} epochs: best checkpoint saved on epoch: {best_checkpoint['epoch']}"
+                )
                 early_stopper.reset()
                 break
 
