@@ -6,7 +6,7 @@ from dataclasses import dataclass
 @dataclass
 class BaseMetric:
     name: str
-    is_decreasing: bool = False
+    is_decreasing: bool
 
 
 @dataclass
