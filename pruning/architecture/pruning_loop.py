@@ -168,9 +168,9 @@ def prune_model(
 
     checkpoint_criterion = cfg.best_checkpoint_criterion
     best_checkpoint = {
-        "state_dict": model.state_dict(),
+        "state_dict": {},
         checkpoint_criterion.name: float("inf" if checkpoint_criterion.is_decreasing else "-inf"),
-        "epoch": 0,
+        "epoch": -1,
         "metrics": {},
     }
 
@@ -178,7 +178,10 @@ def prune_model(
         # reset optimizer in each pruning iteration
         # load last best checkpoint state dict and reset stats
         optimizer = construct_optimizer(cfg, model)
-        model.load_state_dict(best_checkpoint["state_dict"])
+
+        if best_checkpoint["state_dict"]:
+            model.load_state_dict(best_checkpoint["state_dict"])
+
         best_checkpoint[checkpoint_criterion.name] = float(
             "inf" if checkpoint_criterion.is_decreasing else "-inf"
         )
@@ -187,6 +190,8 @@ def prune_model(
 
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
         prune_module(params=params_to_prune, prune_percent=step, pruning_cfg=cfg.pruning.method)
+        if best_checkpoint["state_dict"]:
+            best_checkpoint["state_dict"] = model.state_dict()
 
         pruned, model_pruned = utility.pruning.calculate_pruning_ratio(model)
         iteration_info = {
