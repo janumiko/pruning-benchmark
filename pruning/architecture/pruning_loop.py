@@ -168,30 +168,29 @@ def prune_model(
 
     checkpoint_criterion = cfg.best_checkpoint_criterion
     best_checkpoint = {
-        "state_dict": {},
+        "state_dict": None,
         checkpoint_criterion.name: float("inf" if checkpoint_criterion.is_decreasing else "-inf"),
-        "epoch": -1,
-        "metrics": {},
+        "epoch": None,
+        "metrics": None,
     }
 
     for iteration, step in enumerate(pruning_steps):
         # reset optimizer in each pruning iteration
-        # load last best checkpoint state dict and reset stats
+        # load last best checkpoint state dict
         optimizer = construct_optimizer(cfg, model)
-
         if best_checkpoint["state_dict"]:
             model.load_state_dict(best_checkpoint["state_dict"])
 
+        logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
+        prune_module(params=params_to_prune, prune_percent=step, pruning_cfg=cfg.pruning.method)
+
+        # save the first checkpoit after pruning iteration as a base and reset the information
+        best_checkpoint["state_dict"] = model.state_dict()
+        best_checkpoint["metrics"] = {}
+        best_checkpoint["epoch"] = 0
         best_checkpoint[checkpoint_criterion.name] = float(
             "inf" if checkpoint_criterion.is_decreasing else "-inf"
         )
-        best_checkpoint["epoch"] = 0
-        best_checkpoint["metrics"] = {}
-
-        logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
-        prune_module(params=params_to_prune, prune_percent=step, pruning_cfg=cfg.pruning.method)
-        if best_checkpoint["state_dict"]:
-            best_checkpoint["state_dict"] = model.state_dict()
 
         pruned, model_pruned = utility.pruning.calculate_pruning_ratio(model)
         iteration_info = {
