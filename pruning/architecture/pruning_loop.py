@@ -257,6 +257,7 @@ def prune_model(
         ):
             # post epoch metrics
             metrics["total_epoch"] = total_epoch
+            best_checkpoint["metrics"]["total_epoch"] = total_epoch
 
             checkpoints_data.loc[iteration] = {
                 key: best_checkpoint["metrics"][key] for key in checkpoints_data.columns
