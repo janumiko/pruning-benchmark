@@ -61,7 +61,6 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         )
 
         model = construct_model(cfg).to(device)
-        optimizer = construct_optimizer(cfg, model)
 
         if (
             "structured" in cfg.pruning.method.name
@@ -87,19 +86,15 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
 
         results = prune_model(
             model=model,
-            pruning_config=cfg.pruning.method,
-            early_stopper_config=cfg.early_stopper,
-            optimizer=optimizer,
+            cfg=cfg,
             loss_fn=cross_entropy,
             params_to_prune=params_to_prune,
             pruning_steps=pruning_steps,
-            finetune_epochs=cfg.pruning.finetune_epochs,
             train_dl=train_dl,
             valid_dl=valid_dl,
             device=device,
             metrics_dict=metric_functions,
             wandb_run=wandb_run,
-            checkpoints_interval=cfg.pruning._checkpoints_interval,
         )
         results["repeat"] = i + 1
         results_list.append(results)
@@ -133,36 +128,28 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
 
 def prune_model(
     model: nn.Module,
-    pruning_config: BasePruningMethodConfig,
-    early_stopper_config: EarlyStopperConfig,
-    optimizer: torch.optim.Optimizer,
+    cfg: MainConfig,
     loss_fn: nn.Module,
     params_to_prune: Iterable[tuple[nn.Module, str]],
     pruning_steps: Iterable[int],
-    finetune_epochs: int,
     train_dl: torch.utils.data.DataLoader,
     valid_dl: torch.utils.data.DataLoader,
     metrics_dict: Mapping[str, Callable],
     wandb_run: Run,
-    checkpoints_interval: Interval,
     device: torch.device,
 ) -> pd.DataFrame:
     """Prune the model using the given method.
 
     Args:
         model (nn.Module): The model to prune.
-        pruning_config (BasePruningMethodConfig): The pruning config for the pruning method to use.
-        early_stopper_config (EarlyStopperConfig): The early stopper to use for finetuning.
-        optimizer (torch.optim.Optimizer): The optimizer to use for finetuning.
+        cfg (MainConfig): The configuration for the pruning method.
         loss_fn (nn.Module): The loss function to use for finetuning.
         params_to_prune (Iterable[tuple[nn.Module, str]]): The parameters to prune.
         pruning_steps (Iterable[int]): The number of parameters to prune at each step.
-        finetune_epochs (int): The number of epochs to finetune the model.
         train_dl (torch.utils.data.DataLoader): The training dataloader.
         valid_dl (torch.utils.data.DataLoader): The validation dataloader.
         metrics_dict (Mapping[str, Callable]): The metrics to log during finetuning.
         wandb_run (Run): The wandb object to use for logging.
-        checkpoints_interval (Interval): The interval to log checkpoints.
         device (torch.device): The device to use for training.
 
     Returns:
@@ -174,14 +161,14 @@ def prune_model(
     total_epoch = 0
 
     early_stopper = utility.training.EarlyStopper(
-        patience=early_stopper_config.patience,
-        min_delta=early_stopper_config.min_delta,
-        is_decreasing=early_stopper_config.metric.is_decreasing,
+        patience=cfg.early_stopper.patience,
+        min_delta=cfg.early_stopper.min_delta,
+        is_decreasing=cfg.early_stopper.metric.is_decreasing,
     )
 
     for iteration, step in enumerate(pruning_steps):
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
-        prune_module(params=params_to_prune, prune_percent=step, pruning_cfg=pruning_config)
+        prune_module(params=params_to_prune, prune_percent=step, pruning_cfg=cfg.pruning.method)
 
         pruned, model_pruned = utility.pruning.calculate_pruning_ratio(model)
         iteration_info = {
@@ -190,8 +177,11 @@ def prune_model(
             "model_pruned_precent": round(model_pruned, 2),
         }
 
-        for epoch in range(finetune_epochs):
-            logger.info(f"Epoch {epoch + 1}/{finetune_epochs}")
+        # reset optimizer in each pruning iteration
+        optimizer = construct_optimizer(cfg, model)
+
+        for epoch in range(cfg.pruning.finetune_epochs):
+            logger.info(f"Epoch {epoch + 1}/{cfg.pruning.finetune_epochs}")
             total_epoch += 1
 
             train_loss = utility.training.train_epoch(
@@ -220,16 +210,18 @@ def prune_model(
             metrics.update(iteration_info)
             wandb_run.log(metrics)
 
-            if early_stopper_config.enabled and early_stopper.check_stop(
-                metrics[early_stopper_config.metric.name]
+            if cfg.early_stopper.enabled and early_stopper.check_stop(
+                metrics[cfg.early_stopper.metric.name]
             ):
                 logger.info(f"Early stopping after {epoch+1} epochs")
                 early_stopper.reset()
                 break
 
         if (
-            checkpoints_interval.start * 100 <= pruned <= checkpoints_interval.end * 100
-            and finetune_epochs > 0
+            cfg.pruning._checkpoints_interval.start * 100
+            <= pruned
+            <= cfg.pruning._checkpoints_interval.end * 100
+            and cfg.pruning.finetune_epochs > 0
         ):
             # post epoch metrics
             metrics["total_epoch"] = total_epoch
