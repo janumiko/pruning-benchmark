@@ -169,15 +169,19 @@ def prune_model(
     checkpoint_criterion = cfg.best_checkpoint_criterion
     best_checkpoint = {
         "state_dict": model.state_dict(),
-        checkpoint_criterion.name: checkpoint_criterion._default_value,
+        checkpoint_criterion.name: float("inf" if checkpoint_criterion.is_decreasing else "-inf"),
         "epoch": 0,
     }
 
     for iteration, step in enumerate(pruning_steps):
         # reset optimizer in each pruning iteration
-        # load last best checkpoint state dict
+        # load last best checkpoint state dict and reset stats
         optimizer = construct_optimizer(cfg, model)
         model.load_state_dict(best_checkpoint["state_dict"])
+        best_checkpoint[checkpoint_criterion.name] = float(
+            "inf" if checkpoint_criterion.is_decreasing else "-inf"
+        )
+        best_checkpoint["epoch"] = 0
 
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
         prune_module(params=params_to_prune, prune_percent=step, pruning_cfg=cfg.pruning.method)
@@ -219,9 +223,12 @@ def prune_model(
             if checkpoint_criterion.is_decreasing == (
                 metrics[checkpoint_criterion.name] < best_checkpoint[checkpoint_criterion.name]
             ):
+                logger.info(
+                    f"New best checkpoint found: {checkpoint_criterion.name}: {metrics[checkpoint_criterion.name]:.4f}"
+                )
                 best_checkpoint["state_dict"] = model.state_dict()
                 best_checkpoint[checkpoint_criterion.name] = metrics[checkpoint_criterion.name]
-                best_checkpoint["epoch"] = epoch
+                best_checkpoint["epoch"] = epoch + 1
 
             metrics.update(iteration_info)
             wandb_run.log(metrics)

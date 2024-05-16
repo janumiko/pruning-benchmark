@@ -6,8 +6,7 @@ from dataclasses import dataclass
 @dataclass
 class BaseMetric:
     name: str
-    is_decreasing: bool = False
-    _default_value: float = float("inf" if is_decreasing else "-inf")
+    is_decreasing: bool
 
 
 @dataclass
