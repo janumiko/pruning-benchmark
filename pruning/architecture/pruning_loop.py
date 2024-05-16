@@ -171,6 +171,7 @@ def prune_model(
         "state_dict": model.state_dict(),
         checkpoint_criterion.name: float("inf" if checkpoint_criterion.is_decreasing else "-inf"),
         "epoch": 0,
+        "metrics": {},
     }
 
     for iteration, step in enumerate(pruning_steps):
@@ -182,6 +183,7 @@ def prune_model(
             "inf" if checkpoint_criterion.is_decreasing else "-inf"
         )
         best_checkpoint["epoch"] = 0
+        best_checkpoint["metrics"] = {}
 
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
         prune_module(params=params_to_prune, prune_percent=step, pruning_cfg=cfg.pruning.method)
@@ -219,6 +221,8 @@ def prune_model(
             # additonal epoch metrics
             metrics["training_loss"] = train_loss
             metrics["epoch"] = epoch + 1
+            metrics.update(iteration_info)
+            wandb_run.log(metrics)
 
             if checkpoint_criterion.is_decreasing == (
                 metrics[checkpoint_criterion.name] < best_checkpoint[checkpoint_criterion.name]
@@ -229,9 +233,7 @@ def prune_model(
                 best_checkpoint["state_dict"] = model.state_dict()
                 best_checkpoint[checkpoint_criterion.name] = metrics[checkpoint_criterion.name]
                 best_checkpoint["epoch"] = epoch + 1
-
-            metrics.update(iteration_info)
-            wandb_run.log(metrics)
+                best_checkpoint["metrics"] = metrics
 
             if cfg.early_stopper.enabled and early_stopper.check_stop(
                 metrics[cfg.early_stopper.metric.name]
@@ -252,7 +254,7 @@ def prune_model(
             metrics["total_epoch"] = total_epoch
 
             checkpoints_data.loc[iteration] = {
-                key: metrics[key] for key in checkpoints_data.columns
+                key: best_checkpoint["metrics"][key] for key in checkpoints_data.columns
             }
 
     # summary info
