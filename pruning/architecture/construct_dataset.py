@@ -2,6 +2,14 @@ from config.main_config import MainConfig
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, transforms
+from config.constants import (
+    CIFAR100_MEAN,
+    CIFAR100_STD,
+    IMAGENET1K_MEAN,
+    IMAGENET1K_STD,
+    CIFAR10_MEAN,
+    CIFAR10_STD,
+)
 
 
 def get_cifar10(
@@ -20,7 +28,7 @@ def get_cifar10(
 
     common_transformations = [
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.4914, 0.4822, 0.4465], std=[0.2023, 0.1994, 0.2010]),
+        transforms.Normalize(mean=CIFAR10_MEAN, std=CIFAR10_STD),
     ]
 
     if resize_value is not None:
@@ -69,7 +77,7 @@ def get_cifar100(
 
     common_transformations = [
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.5074, 0.4867, 0.4411], std=[0.2011, 0.1987, 0.2025]),
+        transforms.Normalize(mean=CIFAR100_MEAN, std=CIFAR100_STD),
     ]
 
     if resize_value is not None:
@@ -118,7 +126,7 @@ def get_imagenet1k(path: str, resize_value: int | None = None) -> tuple[Dataset,
             transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+            transforms.Normalize(mean=IMAGENET1K_MEAN, std=IMAGENET1K_STD),
         ]
     )
 
