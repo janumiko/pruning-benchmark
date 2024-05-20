@@ -47,7 +47,7 @@ def get_cifar10(
 
     train_transform = transforms.Compose(
         [
-            transforms.RandomCrop(32, padding=4),
+            transforms.RandomCrop(32, padding=4, padding_mode="reflect"),
             transforms.RandomHorizontalFlip(),
             test_transform,
         ]
