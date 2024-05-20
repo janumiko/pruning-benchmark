@@ -8,6 +8,7 @@ from omegaconf import MISSING
 class BaseDataset:
     name: str = MISSING
     resize_value: Optional[int] = None
+    crop_value: Optional[int] = None
     _path: str = MISSING
     _num_classes: int = MISSING
     _download: bool = False

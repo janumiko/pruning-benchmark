@@ -13,7 +13,7 @@ from torchvision import datasets, transforms
 
 
 def get_cifar10(
-    path: str, download: bool, resize_value: int | None = None
+    path: str, download: bool, resize_value: int | None = None, crop_value: int | None = None
 ) -> tuple[Dataset, Dataset]:
     """Constructs the CIFAR10 dataset.
 
@@ -21,6 +21,7 @@ def get_cifar10(
         path (str): Path to the dataset.
         download (bool): Should the dataset be downloaded.
         resize_value (int | None, optional): Value to resize the images to. Defaults to None.
+        crop_value (int | None, optional): Value to crop the images to. Defaults to None.
 
     Returns:
         tuple[Dataset, Dataset, Dataset]: Tuple of train and test datasets.
@@ -28,14 +29,19 @@ def get_cifar10(
     common_transformations = []
 
     if resize_value is not None:
-        size = resize_value + resize_value // 8
-        common_transformations.append(transforms.Resize((size, size), antialias=True))
-        common_transformations.append(transforms.CenterCrop(resize_value))
+        common_transformations.append(
+            transforms.Resize((resize_value, resize_value), antialias=True)
+        )
 
-    common_transformations.extend([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=CIFAR10_MEAN, std=CIFAR10_STD),
-    ])
+    if crop_value is not None:
+        common_transformations.append(transforms.CenterCrop(crop_value))
+
+    common_transformations.extend(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(mean=CIFAR10_MEAN, std=CIFAR10_STD),
+        ]
+    )
 
     test_transform = transforms.Compose(common_transformations)
 
@@ -65,7 +71,7 @@ def get_cifar10(
 
 
 def get_cifar100(
-    path: str, download: bool, resize_value: int | None = None
+    path: str, download: bool, resize_value: int | None = None, crop_value: int | None = None
 ) -> tuple[Dataset, Dataset]:
     """Constructs the CIFAR100 dataset.
 
@@ -73,6 +79,7 @@ def get_cifar100(
         path (str): Path to the dataset.
         download (bool): Should the dataset be downloaded.
         resize_value (int | None, optional): Value to resize the images to. Defaults to None.
+        crop_value (int | None, optional): Value to crop the images to. Defaults to None.
 
     Returns:
         tuple[Dataset, Dataset]: Tuple of train and test datasets.
@@ -80,14 +87,19 @@ def get_cifar100(
     common_transformations = []
 
     if resize_value is not None:
-        size = resize_value + resize_value // 8
-        common_transformations.append(transforms.Resize((size, size), antialias=True))
-        common_transformations.append(transforms.CenterCrop(resize_value))
+        common_transformations.append(
+            transforms.Resize((resize_value, resize_value), antialias=True)
+        )
 
-    common_transformations.extend([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=CIFAR100_MEAN, std=CIFAR100_STD),
-    ])
+    if crop_value is not None:
+        common_transformations.append(transforms.CenterCrop(crop_value))
+
+    common_transformations.extend(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(mean=CIFAR100_MEAN, std=CIFAR100_STD),
+        ]
+    )
 
     test_transform = transforms.Compose(common_transformations)
 
@@ -116,12 +128,15 @@ def get_cifar100(
     return train_dataset, validate_dataset
 
 
-def get_imagenet1k(path: str, resize_value: int | None = None) -> tuple[Dataset, Dataset]:
+def get_imagenet1k(
+    path: str, resize_value: int | None = None, crop_value: int | None = None
+) -> tuple[Dataset, Dataset]:
     """Constructs the ImageNet1K dataset.
 
     Args:
         path (str): Path to the dataset.
         resize_value (int | None): The size to resize the images to. Defaults to None.
+        crop_value (int | None): The size to crop the images to. Defaults to None.
 
     Returns:
         tuple[Dataset, Dataset]: Train and validation datasets.
@@ -130,14 +145,19 @@ def get_imagenet1k(path: str, resize_value: int | None = None) -> tuple[Dataset,
     common_transformations = []
 
     if resize_value is not None:
-        size = resize_value + resize_value // 8
-        common_transformations.append(transforms.Resize((size, size), antialias=True))
-        common_transformations.append(transforms.CenterCrop(resize_value))
+        common_transformations.append(
+            transforms.Resize((resize_value, resize_value), antialias=True)
+        )
 
-    common_transformations.extend([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=IMAGENET1K_MEAN, std=IMAGENET1K_STD),
-    ])
+    if crop_value is not None:
+        common_transformations.append(transforms.CenterCrop(crop_value))
+
+    common_transformations.extend(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(mean=IMAGENET1K_MEAN, std=IMAGENET1K_STD),
+        ]
+    )
 
     test_transform = transforms.Compose(common_transformations)
 
@@ -168,14 +188,24 @@ def get_dataset(
     match cfg.dataset.name.lower():
         case "cifar10":
             return get_cifar10(
-                cfg.dataset._path, cfg.dataset._download, resize_value=cfg.dataset.resize_value
+                cfg.dataset._path,
+                cfg.dataset._download,
+                resize_value=cfg.dataset.resize_value,
+                crop_value=cfg.dataset.crop_value,
             )
         case "cifar100":
             return get_cifar100(
-                cfg.dataset._path, cfg.dataset._download, resize_value=cfg.dataset.resize_value
+                cfg.dataset._path,
+                cfg.dataset._download,
+                resize_value=cfg.dataset.resize_value,
+                crop_value=cfg.dataset.crop_value,
             )
         case "imagenet1k":
-            return get_imagenet1k(cfg.dataset._path, resize_value=cfg.dataset.resize_value)
+            return get_imagenet1k(
+                cfg.dataset._path,
+                resize_value=cfg.dataset.resize_value,
+                crop_value=cfg.dataset.crop_value,
+            )
         case _:
             raise ValueError(f"Unknown dataset: {cfg.dataset.name}")
 
