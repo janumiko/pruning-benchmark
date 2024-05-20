@@ -1,15 +1,15 @@
-from config.main_config import MainConfig
-import torch
-from torch.utils.data import DataLoader, Dataset
-from torchvision import datasets, transforms
 from config.constants import (
+    CIFAR10_MEAN,
+    CIFAR10_STD,
     CIFAR100_MEAN,
     CIFAR100_STD,
     IMAGENET1K_MEAN,
     IMAGENET1K_STD,
-    CIFAR10_MEAN,
-    CIFAR10_STD,
 )
+from config.main_config import MainConfig
+import torch
+from torch.utils.data import DataLoader, Dataset
+from torchvision import datasets, transforms
 
 
 def get_cifar10(
@@ -32,7 +32,9 @@ def get_cifar10(
     ]
 
     if resize_value is not None:
-        common_transformations.insert(0, transforms.Resize((resize_value, resize_value)))
+        common_transformations.insert(
+            0, transforms.Resize((resize_value, resize_value), antyalias=True)
+        )
 
     test_transform = transforms.Compose(common_transformations)
 
@@ -81,7 +83,9 @@ def get_cifar100(
     ]
 
     if resize_value is not None:
-        common_transformations.insert(0, transforms.Resize((resize_value, resize_value)))
+        common_transformations.insert(
+            0, transforms.Resize((resize_value, resize_value), antyalias=True)
+        )
 
     test_transform = transforms.Compose(common_transformations)
 
@@ -121,19 +125,20 @@ def get_imagenet1k(path: str, resize_value: int | None = None) -> tuple[Dataset,
         tuple[Dataset, Dataset]: Train and validation datasets.
     """
 
-    test_transform = transforms.Compose(
-        [
-            transforms.Resize(256),
-            transforms.CenterCrop(224),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=IMAGENET1K_MEAN, std=IMAGENET1K_STD),
-        ]
-    )
+    common_transformations = [
+        transforms.ToTensor(),
+        transforms.Normalize(mean=IMAGENET1K_MEAN, std=IMAGENET1K_STD),
+    ]
+
+    if resize_value is not None:
+        common_transformations.insert(
+            0, transforms.Resize((resize_value, resize_value), antyalias=True)
+        )
+
+    test_transform = transforms.Compose(common_transformations)
 
     train_transform = transforms.Compose(
         [
-            transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
             test_transform,
         ]
     )
