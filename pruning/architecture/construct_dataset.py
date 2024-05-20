@@ -25,16 +25,17 @@ def get_cifar10(
     Returns:
         tuple[Dataset, Dataset, Dataset]: Tuple of train and test datasets.
     """
-
-    common_transformations = [
-        transforms.ToTensor(),
-        transforms.Normalize(mean=CIFAR10_MEAN, std=CIFAR10_STD),
-    ]
+    common_transformations = []
 
     if resize_value is not None:
-        common_transformations.insert(
-            0, transforms.Resize((resize_value, resize_value), antyalias=True)
-        )
+        size = resize_value + resize_value // 8
+        common_transformations.append(transforms.Resize((size, size), antialias=True))
+        common_transformations.append(transforms.CenterCrop(resize_value))
+
+    common_transformations.extend([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=CIFAR10_MEAN, std=CIFAR10_STD),
+    ])
 
     test_transform = transforms.Compose(common_transformations)
 
@@ -76,16 +77,17 @@ def get_cifar100(
     Returns:
         tuple[Dataset, Dataset]: Tuple of train and test datasets.
     """
-
-    common_transformations = [
-        transforms.ToTensor(),
-        transforms.Normalize(mean=CIFAR100_MEAN, std=CIFAR100_STD),
-    ]
+    common_transformations = []
 
     if resize_value is not None:
-        common_transformations.insert(
-            0, transforms.Resize((resize_value, resize_value), antyalias=True)
-        )
+        size = resize_value + resize_value // 8
+        common_transformations.append(transforms.Resize((size, size), antialias=True))
+        common_transformations.append(transforms.CenterCrop(resize_value))
+
+    common_transformations.extend([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=CIFAR100_MEAN, std=CIFAR100_STD),
+    ])
 
     test_transform = transforms.Compose(common_transformations)
 
@@ -125,15 +127,17 @@ def get_imagenet1k(path: str, resize_value: int | None = None) -> tuple[Dataset,
         tuple[Dataset, Dataset]: Train and validation datasets.
     """
 
-    common_transformations = [
-        transforms.ToTensor(),
-        transforms.Normalize(mean=IMAGENET1K_MEAN, std=IMAGENET1K_STD),
-    ]
+    common_transformations = []
 
     if resize_value is not None:
-        common_transformations.insert(
-            0, transforms.Resize((resize_value, resize_value), antyalias=True)
-        )
+        size = resize_value + resize_value // 8
+        common_transformations.append(transforms.Resize((size, size), antialias=True))
+        common_transformations.append(transforms.CenterCrop(resize_value))
+
+    common_transformations.extend([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=IMAGENET1K_MEAN, std=IMAGENET1K_STD),
+    ])
 
     test_transform = transforms.Compose(common_transformations)
 
