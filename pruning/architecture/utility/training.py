@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 import random
 from typing import Callable, Mapping, Sequence
@@ -8,6 +9,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+
+logger = logging.getLogger(__name__)
 
 
 def train_epoch(
@@ -32,7 +35,12 @@ def train_epoch(
 
     module.train()
     train_loss = 0
-    for inputs, labels in train_dl:
+
+    total_samples = len(train_dl.dataset)
+    processed_samples = 0
+    log_batch_iter = max(1, len(train_dl) // 10)
+
+    for batch, (inputs, labels) in enumerate(train_dl):
         inputs, labels = inputs.to(device), labels.to(device)
 
         # Zero the parameter gradients
@@ -47,6 +55,11 @@ def train_epoch(
         optimizer.step()
 
         train_loss += loss.item()
+        processed_samples += len(inputs)
+        if batch % log_batch_iter == 0:
+            logger.info(
+                f"Processed {processed_samples}/{total_samples} samples, loss: {loss.item():.6f}"
+            )
 
     return train_loss / len(train_dl)
 
@@ -74,8 +87,12 @@ def validate_epoch(
     metrics = {name: 0.0 for name in metrics_functions.keys()}
     metrics["validation_loss"] = 0.0
 
+    total_samples = len(valid_dl.dataset)
+    processed_samples = 0
+    log_batch_iter = max(1, len(valid_dl) // 10)
+
     with torch.no_grad():
-        for X, labels in valid_dl:
+        for batch, (X, labels) in enumerate(valid_dl):
             X, labels = X.to(device), labels.to(device)
             # Compute prediction error
             pred = module(X)
@@ -84,6 +101,13 @@ def validate_epoch(
             metrics["validation_loss"] += loss.item()
             for name, func in metrics_functions.items():
                 metrics[name] += func(pred, labels)
+
+            processed_samples += len(X)
+
+            if batch % log_batch_iter == 0:
+                logger.info(
+                    f"Processed {processed_samples}/{total_samples} samples, loss: {loss.item():.6f}"
+                )
 
     for name, _ in metrics.items():
         metrics[name] /= len(valid_dl)
