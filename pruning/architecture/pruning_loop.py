@@ -23,7 +23,9 @@ logger = logging.getLogger(__name__)
 
 def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Device used: {device}")
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logger.info(f"Starting experiment at {current_date}")
 
     register_models()
     base_model: nn.Module = construct_model(cfg).to(device)
