@@ -10,19 +10,19 @@ class BasePruningStepScheduler:
         self.end = end
         self.step = step
 
-    def __iter__(self) -> Generator[float, None, None]:
+    def __iter__(self) -> Generator[list[float], None, None]:
         raise NotImplementedError
 
 
 class ConstantStepScheduler(BasePruningStepScheduler):
-    def __iter__(self) -> Generator[float, None, None]:
+    def __iter__(self) -> Generator[list[float], None, None]:
         num_steps = round((self.end - self.start) / self.step)
 
         if self.start != 0:
-            yield self.start
+            yield [self.start]
 
         for _ in range(num_steps):
-            yield self.step
+            yield [self.step]
 
 
 class IterativeStepScheduler(BasePruningStepScheduler):
@@ -30,7 +30,7 @@ class IterativeStepScheduler(BasePruningStepScheduler):
         nonpruned_percent = 1
 
         if self.start != 0:
-            yield self.start
+            yield [self.start]
             nonpruned_percent -= round(self.start * nonpruned_percent, 8)
 
         # stop if pruned more than target pruning percentage - 0.1%
@@ -40,28 +40,36 @@ class IterativeStepScheduler(BasePruningStepScheduler):
             nonpruned_percent = round(nonpruned_percent, 8)
 
             assert current_step > 0, "The pruning step is too small."
-            yield current_step
+            yield [current_step]
 
 
 class OneShotStepScheduler(BasePruningStepScheduler):
-    def __iter__(self) -> Generator[float, None, None]:
-        yield self.end
+    def __iter__(self) -> Generator[list[float], None, None]:
+        yield [self.end]
 
 
 class LogarithmicStepScheduler(BasePruningStepScheduler):
-    def __iter__(self) -> Generator[float, None, None]:
+    def __iter__(self) -> Generator[list[float], None, None]:
         num_values = round((self.end - self.start) / self.step)
         total_sum = self.end - self.start
 
         if self.start != 0:
-            yield self.start
+            yield [self.start]
 
         values = np.geomspace(1, num_values, num=num_values)
 
         values *= total_sum / np.sum(values)
 
         for value in reversed(values):
-            yield round(value, 3)
+            yield [round(value, 3)]
+
+
+class ManualStepScheduler(BasePruningStepScheduler):
+    def __init__(self, pruning_steps: list[list[float]]) -> None:
+        self.pruning_steps = pruning_steps
+
+    def __iter__(self) -> Generator[list[float], None, None]:
+        yield from self.pruning_steps
 
 
 def construct_step_scheduler(
@@ -76,7 +84,7 @@ def construct_step_scheduler(
         ValueError: If the scheduler type is unknown.
 
     Returns:
-        BasePruningStepScheduler: Pruning step scheduler.
+        BasePruningStepScheduler.
     """
     assert scheduler_config.end < 1, "The pruning iterator end value must be less than 1"
 
@@ -105,5 +113,7 @@ def construct_step_scheduler(
                 end=scheduler_config.end,
                 step=scheduler_config.step,
             )
+        case "manual":
+            return ManualStepScheduler(pruning_steps=scheduler_config.pruning_steps)
         case _:
             raise ValueError(f"Unknown scheduler type: {scheduler_config.name}")

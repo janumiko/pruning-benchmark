@@ -57,7 +57,7 @@ def train_epoch(
         train_loss += loss.item()
         processed_samples += len(inputs)
         if batch % log_batch_iter == 0:
-            logger.info(
+            logger.debug(
                 f"Processed {processed_samples}/{total_samples} samples, loss: {loss.item():.6f}"
             )
 
@@ -105,7 +105,7 @@ def validate_epoch(
             processed_samples += len(X)
 
             if batch % log_batch_iter == 0:
-                logger.info(
+                logger.debug(
                     f"Processed {processed_samples}/{total_samples} samples, loss: {loss.item():.6f}"
                 )
 
