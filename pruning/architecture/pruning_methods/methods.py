@@ -91,7 +91,7 @@ def ln_structured(
         norm (int | str): The norm to use for pruning.
         dim (int): The dimension to use for pruning.
         pruning_values (Iterator[float]): An iterator of pruning value for every layer.
-        manual (bool): Whether to use manual pruning.
+        kwargs: Catch all the other arguments.
     """
 
     prev_module = parameters_to_prune[0][0]
@@ -150,7 +150,7 @@ def prune_module(
     Args:
         params (tuple[nn.Module, str]):
         pruning_values (Iterable[float]): An iterator of pruning value for every layer.
-        cfg (BasePruningMethodConfig): Configuration for the pruning method.
+        pruning_cfg (BasePruningMethodConfig): Configuration for the pruning method.
     """
 
     METHOD_REGISTER[pruning_cfg.name](
