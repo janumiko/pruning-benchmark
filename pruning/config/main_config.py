@@ -6,7 +6,11 @@ from omegaconf import MISSING
 from torch import nn
 
 from .datasets import CIFAR10, CIFAR100, BaseDataset, ImageNet1K
-from .methods import BasePruningMethodConfig, GlobalL1UnstructuredConfig, LnStructuredConfig
+from .methods import (
+    BasePruningMethodConfig,
+    GlobalL1UnstructuredConfig,
+    LnStructuredConfig,
+)
 from .metrics import BaseMetric, Top1Accuracy, Top5Accuracy, ValidationLoss
 from .optimizers import SGD, AdamW, BaseOptimizer
 from .schedulers import (
@@ -14,6 +18,7 @@ from .schedulers import (
     ConstantStepSchedulerConfig,
     IterativeStepSchedulerConfig,
     LogarithmicStepSchedulerConfig,
+    ManualSchedulerConfig,
     OneShotStepSchedulerConfig,
 )
 
@@ -75,7 +80,7 @@ class MainConfig:
             {"dataset": "_"},
             {"pruning.scheduler": "_"},
             {"pruning.method": "_"},
-            {"early_stopper.metric": "_"},
+            {"early_stopper.metric": "validation_loss"},
         ]
     )
 
@@ -93,6 +98,7 @@ class MainConfig:
     _save_checkpoints: bool = False
     _seed: Seed = field(default_factory=Seed)
     _wandb: Wandb = field(default_factory=Wandb)
+    _logging_level: str = "INFO"  # DEBUG
 
 
 # register the config groups
@@ -128,6 +134,11 @@ config_store.store(
     group="pruning.scheduler",
     name=ConstantStepSchedulerConfig().name,
     node=ConstantStepSchedulerConfig,
+)
+config_store.store(
+    group="pruning.scheduler",
+    name=ManualSchedulerConfig().name,
+    node=ManualSchedulerConfig,
 )
 
 # pruning methods

@@ -9,9 +9,7 @@ from architecture.construct_optimizer import construct_optimizer
 from architecture.pruning_methods.methods import prune_module
 from architecture.pruning_methods.schedulers import construct_step_scheduler
 import architecture.utility as utility
-from config.main_config import TYPES_TO_PRUNE, EarlyStopperConfig, Interval, MainConfig
-from config.methods import BasePruningMethodConfig
-import numpy as np
+from config.main_config import TYPES_TO_PRUNE, MainConfig
 import pandas as pd
 import torch
 from torch import nn
@@ -55,6 +53,9 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
     group_name = utility.summary.get_run_group_name(cfg, current_date)
     results_list = []
 
+    if cfg.pruning.scheduler.name == "manual":
+        utility.pruning.validate_manual_pruning(base_model, cfg, TYPES_TO_PRUNE)
+
     for i in range(cfg._repeat):
         logger.info(f"Repeat {i+1}/{cfg._repeat}")
 
@@ -82,8 +83,8 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         logger.info(
             f"Iterations: {len(pruning_steps)}\n"
             f"Pruning percentages at each step {pruning_steps}\n"
-            f"Total parameters to prune: {int(sum(pruning_steps) * total_params)} "
-            f"({round(sum(pruning_steps) * 100, 2)}%)"
+            f"Total parameters to prune: {int(sum([sum(step) for step in pruning_steps]) * total_params)} "
+            f"({round(sum([sum(step) for step in pruning_steps]) * 100, 2)}%)"
         )
 
         results = prune_model(
@@ -176,7 +177,7 @@ def prune_model(
         "metrics": None,
     }
 
-    for iteration, step in enumerate(pruning_steps):
+    for iteration, pruning_values in enumerate(pruning_steps):
         # reset optimizer in each pruning iteration
         # load last best checkpoint state dict
         optimizer = construct_optimizer(cfg, model)
@@ -184,7 +185,11 @@ def prune_model(
             model.load_state_dict(best_checkpoint["state_dict"])
 
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
-        prune_module(params=params_to_prune, prune_percent=step, pruning_cfg=cfg.pruning.method)
+        prune_module(
+            params=params_to_prune,
+            pruning_values=pruning_values,
+            pruning_cfg=cfg.pruning.method,
+        )
 
         # save the first checkpoit after pruning iteration as a base and reset the information
         best_checkpoint["state_dict"] = model.state_dict()

@@ -1,5 +1,6 @@
 from typing import Iterable
 
+from config.main_config import MainConfig
 import torch
 import torch.nn as nn
 
@@ -186,3 +187,44 @@ def log_module_sparsity(model: nn.Module, logger):
     sparsity = calculate_total_sparsity(model)
     logger.info(f"Zero weights of the pruned module: {sparsity:.2f}%")
     return sparsity
+
+
+def validate_manual_pruning(
+    model: nn.Module, cfg: MainConfig, types_to_prune: Iterable[nn.Module]
+) -> None:
+    """Validate if the provided manual pruning is valid.
+    Check if the number of steps inside a pruning iteration matches number of layers.
+    Check if every pruning iteration has the same length or length of 1.
+    If a pruning iteration has a length of 1, the single valueue will be propagated to all layers.
+
+    Args:
+        model (nn.Module): A PyTorch model.
+        cfg (MainConfig): Configuration for the pruning.
+        types_to_prune (Iterable[nn.Module]): Types of modules to prune.
+    """
+
+    pruning_steps = cfg.pruning.scheduler.pruning_steps
+
+    # Check if every pruning step is the same length
+    expected_step_length = len(pruning_steps[0])
+    assert all(
+        len(step) == expected_step_length or len(step) == 1 for step in pruning_steps
+    ), f"Every pruning step must have the same length: {expected_step_length}"
+
+    params_to_prune = []
+    for module, name in get_parameters_to_prune(model, types_to_prune):
+        if name.endswith("bias"):
+            continue
+
+        if isinstance(module, nn.Conv2d) and module.kernel_size == (1, 1):
+            continue
+
+        params_to_prune.append((module, name))
+
+    # Check if manual pruning matches the amount of layers to prune in the model
+    # if the length is 1, it will be propagated to all layers
+    num_layers = len(params_to_prune)
+    assert len(pruning_steps[0]) == num_layers or len(pruning_steps[0]) == 1, (
+        f"Invalid length of the pruning step: {len(pruning_steps[0])}\n"
+        f"should be equal to the number of layers to prune: {num_layers}"
+    )
