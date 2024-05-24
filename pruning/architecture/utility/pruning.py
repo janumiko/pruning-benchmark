@@ -192,24 +192,25 @@ def log_module_sparsity(model: nn.Module, logger):
 def validate_manual_pruning(
     model: nn.Module, cfg: MainConfig, types_to_prune: Iterable[nn.Module]
 ) -> None:
-    """_summary_
+    """Validate if the provided manual pruning is valid.
+    Check if the number of steps inside a pruning iteration matches number of layers.
+    Check if every pruning iteration has the same length or length of 1.
+    If a pruning iteration has a length of 1, the single valueue will be propagated to all layers.
 
     Args:
-        model (nn.Module): _description_
-        cfg (MainConfig): _description_
-        types_to_prune (Iterable[nn.Module]): _description_
+        model (nn.Module): A PyTorch model.
+        cfg (MainConfig): Configuration for the pruning.
+        types_to_prune (Iterable[nn.Module]): Types of modules to prune.
     """
 
-    # Get the pruning steps from the configuration
     pruning_steps = cfg.pruning.scheduler.pruning_steps
 
     # Check if every pruning step is the same length
     expected_step_length = len(pruning_steps[0])
     assert all(
-        len(step) == expected_step_length for step in pruning_steps
+        len(step) == expected_step_length or len(step) == 1 for step in pruning_steps
     ), f"Every pruning step must have the same length: {expected_step_length}"
 
-    # Get the parameters to prune, excluding bias
     params_to_prune = []
     for module, name in get_parameters_to_prune(model, types_to_prune):
         if name.endswith("bias"):
