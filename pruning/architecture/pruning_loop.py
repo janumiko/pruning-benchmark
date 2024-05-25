@@ -150,7 +150,7 @@ def start_pruning_experiment(
             base_top5acc,
         )
 
-    utility.training.cleanup_ddp(ddp_init_method)
+    utility.training.cleanup_ddp()
 
 
 def prune_model(
@@ -215,16 +215,18 @@ def prune_model(
         if checkpoint_path.exists():
             model.load_state_dict(torch.load(checkpoint_path, map_location={"cuda:0": f"cuda:{rank}"}))
 
-        prune_module(
-            params=params_to_prune,
-            pruning_values=pruning_values,
-            pruning_cfg=cfg.pruning.method,
-        )
+        if iteration == 0 or rank == 0:
+            prune_module(
+                params=params_to_prune,
+                pruning_values=pruning_values,
+                pruning_cfg=cfg.pruning.method,
+            )
 
         logger.debug("Broadcasting buffers")
         for name, buffer in model.named_buffers():
             if name.endswith("_mask"):
-                dist.broadcast(buffer, src=0)
+                dist.broadcast(buffer, src=0, async_op=True)
+        dist.barrier()
 
         # reset optimizer in each pruning iteration
         logger.debug("Constructing optimizer")
@@ -240,6 +242,7 @@ def prune_model(
 
         pruned, model_pruned = utility.pruning.calculate_pruning_ratio(model)
         logger.info(f"Pruned: {pruned:.2f}%")
+        logger.info(f"Model pruned: {model_pruned:.2f}%")
         iteration_info = {
             "iteration": iteration,
             "pruned_precent": round(pruned, 2),

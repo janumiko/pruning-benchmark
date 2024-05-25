@@ -139,18 +139,10 @@ def setup_ddp(rank: int, world_size: int, init_method: str, seed: int = None) ->
     dist.barrier()
 
 
-def cleanup_ddp(ddp_init_method: str) -> None:
+def cleanup_ddp() -> None:
     """Cleanup the distributed training environment.
-
-    Args:
-        ddp_init_method (str): The initialization method.
     """
-    # Remove the file used for initialization
-    if ddp_init_method.startswith("file://"):
-        file_path = Path(ddp_init_method[7:])
-        if file_path.exists():
-            file_path.unlink()
-
+    dist.barrier()
     dist.destroy_process_group()
 
 
