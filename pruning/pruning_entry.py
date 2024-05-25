@@ -1,12 +1,12 @@
 import logging
 from pathlib import Path
+import uuid
 
 from architecture.pruning_loop import start_pruning_experiment
 from config.main_config import MainConfig
 import hydra
 from omegaconf import OmegaConf
 import torch.multiprocessing as mp
-import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,12 @@ def main(cfg: MainConfig) -> None:
 
     gpus = cfg._gpus
     uuid_str = uuid.uuid4().hex
-    mp.spawn(start_pruning_experiment, args=(gpus, cfg, hydra_output_dir, uuid_str), nprocs=gpus, join=True)
+    mp.spawn(
+        start_pruning_experiment,
+        args=(gpus, cfg, hydra_output_dir, uuid_str),
+        nprocs=gpus,
+        join=True,
+    )
 
 
 if __name__ == "__main__":

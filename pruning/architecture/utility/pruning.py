@@ -1,9 +1,9 @@
+import logging
 from typing import Iterable
 
 from config.main_config import MainConfig
 import torch
 import torch.nn as nn
-import logging
 
 logger = logging.getLogger(__name__)
 

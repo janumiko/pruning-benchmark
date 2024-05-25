@@ -2,7 +2,6 @@ import datetime
 import logging
 import os
 from pathlib import Path
-import tempfile
 from typing import Callable, Iterable, Mapping
 
 from architecture.construct_dataset import get_dataloaders
@@ -32,6 +31,7 @@ def start_pruning_experiment(
         world_size (int): The number of processes.
         cfg (MainConfig): The configuration for the pruning experiment.
         out_directory (Path): The output directory for the experiment.
+        uuid_str (str): The unique identifier for the experiment.
     """
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     group_name = utility.summary.get_run_group_name(cfg, current_date)
@@ -175,6 +175,7 @@ def prune_model(
         rank (int): The rank of the process.
         world_size (int): The number of processes.
         cfg (MainConfig): The configuration for the pruning method.
+        out_directory (Path): The output directory for the experiment.
         model (nn.Module): The model to prune.
         loss_fn (nn.Module): The loss function to use for finetuning.
         params_to_prune (Iterable[tuple[nn.Module, str]]): The parameters to prune.

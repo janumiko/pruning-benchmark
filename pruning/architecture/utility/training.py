@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 import random
 from typing import Callable, Mapping, Sequence
@@ -10,7 +11,6 @@ import torch.distributed as dist
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-import os
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +123,7 @@ def setup_ddp(rank: int, world_size: int, process_group_name: str, seed: int = N
     Args:
         rank (int): The rank of the process.
         world_size (int): The number of processes.
-
+        process_group_name (str): The name of the process group.
         seed (int, optional): The seed for reproducibility.
     """
     file_path = f"{os.getenv('SCRATCH')}/{process_group_name}"
@@ -142,7 +142,11 @@ def setup_ddp(rank: int, world_size: int, process_group_name: str, seed: int = N
 
 
 def cleanup_ddp(process_group_name: str) -> None:
-    """Cleanup the distributed training environment."""
+    """Cleanup the distributed training environment.
+
+    Args:
+        process_group_name (str): The name of the process group.
+    """
     file_path = f"{os.getenv('SCRATCH')}/{process_group_name}"
     try:
         os.remove(file_path)

@@ -9,8 +9,8 @@ from config.constants import (
 from config.main_config import MainConfig
 import torch
 from torch.utils.data import DataLoader, Dataset
-from torchvision import datasets, transforms
 from torch.utils.data.distributed import DistributedSampler
+from torchvision import datasets, transforms
 
 
 def get_cifar10(
@@ -186,6 +186,15 @@ def get_imagenet1k(
 def get_dataset(
     cfg: MainConfig,
 ) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
+    """
+    Get the dataset based on the provided configuration.
+
+    Args:
+        cfg (MainConfig): The main configuration object.
+
+    Returns:
+        tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]: A tuple containing the train and test datasets.
+    """
     match cfg.dataset.name.lower():
         case "cifar10":
             return get_cifar10(
@@ -214,6 +223,15 @@ def get_dataset(
 def get_dataloaders(
     cfg: MainConfig,
 ) -> tuple[DataLoader, DataLoader]:
+    """
+    Get train and validation data loaders.
+
+    Args:
+        cfg (MainConfig): The main configuration object.
+
+    Returns:
+        tuple[DataLoader, DataLoader]: A tuple containing the train and validation data loaders.
+    """
     train_dataset, validate_dataset = get_dataset(cfg)
     train_sampler = DistributedSampler(train_dataset) if cfg._gpus > 1 else None
     validate_sampler = DistributedSampler(validate_dataset) if cfg._gpus > 1 else None
