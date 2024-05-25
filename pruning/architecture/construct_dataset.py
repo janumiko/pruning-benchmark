@@ -221,7 +221,7 @@ def get_dataloaders(
     train_loader = DataLoader(
         train_dataset,
         batch_size=cfg.dataloaders.batch_size,
-        shuffle=True,
+        shuffle=(train_sampler is None),
         pin_memory=cfg.dataloaders._pin_memory,
         num_workers=cfg.dataloaders._num_workers,
         sampler=train_sampler,

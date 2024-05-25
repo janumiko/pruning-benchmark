@@ -3,6 +3,9 @@ from typing import Iterable
 from config.main_config import MainConfig
 import torch
 import torch.nn as nn
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def get_parameters_to_prune(

@@ -117,16 +117,16 @@ def validate_epoch(
     return metrics
 
 
-def setup_ddp(rank: int, world_size: int, seed: int = None) -> None:
+def setup_ddp(rank: int, world_size: int, process_group_name: str, seed: int = None) -> None:
     """Setup the distributed training environment.
 
     Args:
         rank (int): The rank of the process.
         world_size (int): The number of processes.
+
         seed (int, optional): The seed for reproducibility.
     """
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = "12355"
+    file_path = f"{os.getenv('SCRATCH')}/{process_group_name}"
 
     if seed is not None:
         set_reproducibility(seed)
@@ -134,14 +134,20 @@ def setup_ddp(rank: int, world_size: int, seed: int = None) -> None:
     torch.cuda.set_device(rank)
     dist.init_process_group(
         backend="nccl",
-        init_method="env://",
+        init_method=f"file://{file_path}",
         world_size=world_size,
         rank=rank,
     )
+    dist.barrier()
 
 
-def cleanup_ddp() -> None:
+def cleanup_ddp(process_group_name: str) -> None:
     """Cleanup the distributed training environment."""
+    file_path = f"{os.getenv('SCRATCH')}/{process_group_name}"
+    try:
+        os.remove(file_path)
+    except FileNotFoundError:
+        pass
     dist.destroy_process_group()
 
 

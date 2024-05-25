@@ -16,7 +16,6 @@ import pandas as pd
 import torch
 from torch import nn
 import torch.distributed as dist
-from torch.nn.parallel import DistributedDataParallel
 import torch.nn.utils.prune as prune
 from wandb.sdk.wandb_run import Run
 
@@ -24,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 def start_pruning_experiment(
-    rank: int, world_size: int, cfg: MainConfig, out_directory: Path
+    rank: int, world_size: int, cfg: MainConfig, out_directory: Path, uuid_str: str
 ) -> None:
     """Start the pruning experiment.
 
@@ -34,14 +33,16 @@ def start_pruning_experiment(
         cfg (MainConfig): The configuration for the pruning experiment.
         out_directory (Path): The output directory for the experiment.
     """
-    utility.training.setup_ddp(rank, world_size, cfg._seed)
-    utility.summary.config_logger(out_directory, rank)
-    device = torch.device(f"cuda:{rank}")
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    group_name = utility.summary.get_run_group_name(cfg, current_date)
     logger.info(f"Starting experiment at {current_date}")
 
+    utility.training.setup_ddp(rank, world_size, uuid_str, cfg._seed)
+    utility.summary.config_logger(out_directory, rank)
+    device = torch.device(f"cuda:{rank}")
+
     register_models()
-    base_model: nn.Module = construct_model(cfg).to(device)
+    base_model: nn.Module = construct_model(cfg, rank)
     train_dl, valid_dl = get_dataloaders(cfg)
     cross_entropy = nn.CrossEntropyLoss()
 
@@ -55,6 +56,7 @@ def start_pruning_experiment(
         },
         device=device,
     )
+    base_metrics = utility.training.gather_metrics(base_metrics, world_size)
     base_top1acc = base_metrics["top1_accuracy"]
     base_top5acc = base_metrics["top5_accuracy"]
     logger.info(f"Base top-1 accuracy: {base_top1acc:.2f}%")
@@ -65,7 +67,6 @@ def start_pruning_experiment(
         "top5_accuracy": utility.metrics.top5_accuracy,
     }
 
-    group_name = utility.summary.get_run_group_name(cfg, current_date)
     results_list = []
 
     if cfg.pruning.scheduler.name == "manual":
@@ -81,7 +82,7 @@ def start_pruning_experiment(
             logging=(cfg._wandb.logging and rank == 0),
         )
 
-        model = construct_model(cfg).to(device)
+        model = construct_model(cfg, rank)
 
         if (
             "structured" in cfg.pruning.method.name
@@ -105,13 +106,12 @@ def start_pruning_experiment(
             f"({round(sum([sum(step) for step in pruning_steps]) * 100, 2)}%)"
         )
 
-        model = DistributedDataParallel(model, device_ids=[rank])
-
         results = prune_model(
             rank=rank,
             world_size=world_size,
             model=model,
             cfg=cfg,
+            out_directory=out_directory,
             loss_fn=cross_entropy,
             params_to_prune=params_to_prune,
             pruning_steps=pruning_steps,
@@ -151,13 +151,14 @@ def start_pruning_experiment(
             base_top5acc,
         )
 
-    utility.training.cleanup_ddp()
+    utility.training.cleanup_ddp(uuid_str)
 
 
 def prune_model(
     rank: int,
     world_size: int,
     cfg: MainConfig,
+    out_directory: Path,
     model: nn.Module,
     loss_fn: nn.Module,
     params_to_prune: Iterable[tuple[nn.Module, str]],
@@ -199,7 +200,7 @@ def prune_model(
     )
 
     checkpoint_criterion = cfg.best_checkpoint_criterion
-    checkpoint_path = f"{tempfile.gettempdir()}/best_checkpoint.pth"
+    checkpoint_path = f"{out_directory}/best_checkpoint.pth"
     best_checkpoint = {
         "state_dict": None,
         checkpoint_criterion.name: float("inf" if checkpoint_criterion.is_decreasing else "-inf"),
@@ -212,22 +213,24 @@ def prune_model(
 
         # load last best checkpoint state dict
         if Path(checkpoint_path).exists():
-            torch.load(checkpoint_path, map_location={"cuda:0": f"cuda:{rank}"})
+            model.load_state_dict(torch.load(checkpoint_path, map_location={"cuda:0": f"cuda:{rank}"}))
 
         prune_module(
             params=params_to_prune,
             pruning_values=pruning_values,
             pruning_cfg=cfg.pruning.method,
         )
-        dist.barrier()
 
+        logger.debug("Broadcasting buffers")
         for name, buffer in model.named_buffers():
             if name.endswith("_mask"):
                 dist.broadcast(buffer, src=0)
 
         # reset optimizer in each pruning iteration
+        logger.debug("Constructing optimizer")
         optimizer = construct_optimizer(cfg, model)
 
+        logger.debug("Creating checkpoint")
         best_checkpoint["state_dict"] = model.state_dict()
         best_checkpoint["metrics"] = {}
         best_checkpoint["epoch"] = 0
@@ -296,6 +299,7 @@ def prune_model(
         if rank == 0:
             logger.debug(f"Saving best checkpoint to {checkpoint_path}")
             torch.save(best_checkpoint["state_dict"], checkpoint_path)
+        dist.barrier()
 
         if (
             cfg.pruning._checkpoints_interval.start * 100
