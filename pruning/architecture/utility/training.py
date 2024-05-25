@@ -157,11 +157,13 @@ def gather_metrics(metrics: dict[str, float], world_size: int) -> dict[str, floa
         dict[str, float]: Gathered metrics dictionary.
     """
     gathered_metrics = {}
+    
     for key in metrics.keys():
         tensor = torch.tensor(metrics[key]).cuda()
-        dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
+        dist.all_reduce(tensor, op=dist.ReduceOp.SUM, async_op=True)
         gathered_metrics[key] = tensor.item() / world_size
 
+    dist.barrier()
     return gathered_metrics
 
 
