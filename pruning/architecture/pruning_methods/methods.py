@@ -2,7 +2,7 @@ import itertools
 import logging
 from typing import Callable, Iterable, Iterator
 
-from architecture.utility.pruning import calculate_parameters_amount
+from architecture.utility.pruning import calculate_parameters_amount, global_unstructured_modified
 from config.methods import BasePruningMethodConfig, GlobalL1UnstructuredConfig, LnStructuredConfig
 import torch
 from torch import nn
@@ -69,7 +69,7 @@ def global_l1_unstructured(
 
     amount_to_prune = int(calculate_parameters_amount(parameters_to_prune) * next(pruning_values))
 
-    prune.global_unstructured(
+    global_unstructured_modified(
         parameters_to_prune,
         pruning_method=prune.L1Unstructured,
         amount=amount_to_prune,
