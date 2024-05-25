@@ -1,5 +1,4 @@
 import logging
-import os
 from pathlib import Path
 import random
 from typing import Callable, Mapping, Sequence
@@ -117,16 +116,15 @@ def validate_epoch(
     return metrics
 
 
-def setup_ddp(rank: int, world_size: int, process_group_name: str, seed: int = None) -> None:
+def setup_ddp(rank: int, world_size: int, init_method: str, seed: int = None) -> None:
     """Setup the distributed training environment.
 
     Args:
         rank (int): The rank of the process.
         world_size (int): The number of processes.
-        process_group_name (str): The name of the process group.
+        init_method (str): The initialization method.
         seed (int, optional): The seed for reproducibility.
     """
-    file_path = f"{os.getenv('SCRATCH')}/{process_group_name}"
 
     if seed is not None:
         set_reproducibility(seed)
@@ -134,24 +132,25 @@ def setup_ddp(rank: int, world_size: int, process_group_name: str, seed: int = N
     torch.cuda.set_device(rank)
     dist.init_process_group(
         backend="nccl",
-        init_method=f"file://{file_path}",
+        init_method=init_method,
         world_size=world_size,
         rank=rank,
     )
     dist.barrier()
 
 
-def cleanup_ddp(process_group_name: str) -> None:
+def cleanup_ddp(ddp_init_method: str) -> None:
     """Cleanup the distributed training environment.
 
     Args:
-        process_group_name (str): The name of the process group.
+        ddp_init_method (str): The initialization method.
     """
-    file_path = f"{os.getenv('SCRATCH')}/{process_group_name}"
-    try:
-        os.remove(file_path)
-    except FileNotFoundError:
-        pass
+    # Remove the file used for initialization
+    if ddp_init_method.startswith("file://"):
+        file_path = Path(ddp_init_method[7:])
+        if file_path.exists():
+            file_path.unlink()
+
     dist.destroy_process_group()
 
 

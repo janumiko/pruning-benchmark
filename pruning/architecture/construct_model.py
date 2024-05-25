@@ -1,8 +1,9 @@
+import logging
+
 from config.main_config import MainConfig
 from timm import create_model
 import torch
 from torch import nn
-import logging
 from torch.nn.parallel import DistributedDataParallel
 
 logger = logging.getLogger(__name__)

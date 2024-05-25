@@ -1,6 +1,5 @@
 import datetime
 import logging
-import os
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
@@ -22,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def start_pruning_experiment(
-    rank: int, world_size: int, cfg: MainConfig, out_directory: Path, uuid_str: str
+    rank: int, world_size: int, cfg: MainConfig, out_directory: Path, ddp_init_method: str
 ) -> None:
     """Start the pruning experiment.
 
@@ -31,13 +30,13 @@ def start_pruning_experiment(
         world_size (int): The number of processes.
         cfg (MainConfig): The configuration for the pruning experiment.
         out_directory (Path): The output directory for the experiment.
-        uuid_str (str): The unique identifier for the experiment.
+        ddp_init_method (str): The DDP initialization method.
     """
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     group_name = utility.summary.get_run_group_name(cfg, current_date)
     logger.info(f"Starting experiment at {current_date}")
 
-    utility.training.setup_ddp(rank, world_size, uuid_str, cfg._seed)
+    utility.training.setup_ddp(rank, world_size, ddp_init_method, cfg._seed)
     utility.summary.config_logger(out_directory, rank)
     device = torch.device(f"cuda:{rank}")
 
@@ -151,7 +150,7 @@ def start_pruning_experiment(
             base_top5acc,
         )
 
-    utility.training.cleanup_ddp(uuid_str)
+    utility.training.cleanup_ddp(ddp_init_method)
 
 
 def prune_model(
@@ -201,7 +200,7 @@ def prune_model(
     )
 
     checkpoint_criterion = cfg.best_checkpoint_criterion
-    checkpoint_path = f"{out_directory}/best_checkpoint.pth"
+    checkpoint_path = Path(f"{out_directory}/best_checkpoint.pth")
     best_checkpoint = {
         "state_dict": None,
         checkpoint_criterion.name: float("inf" if checkpoint_criterion.is_decreasing else "-inf"),
@@ -213,7 +212,7 @@ def prune_model(
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
 
         # load last best checkpoint state dict
-        if Path(checkpoint_path).exists():
+        if checkpoint_path.exists():
             model.load_state_dict(torch.load(checkpoint_path, map_location={"cuda:0": f"cuda:{rank}"}))
 
         prune_module(
@@ -317,11 +316,9 @@ def prune_model(
             }
 
     if rank == 0:
-        try:
+        if checkpoint_path.exists():
             logging.debug(f"Removing checkpoint file {checkpoint_path}")
-            os.remove(checkpoint_path)
-        except FileNotFoundError:
-            pass
+            checkpoint_path.unlink()
 
     # summary info
     summary = wandb_run.summary

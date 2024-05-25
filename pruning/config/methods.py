@@ -11,7 +11,6 @@ class LnStructuredConfig(BasePruningMethodConfig):
     name: str = "ln_structured"
     norm: int | str = 1
     dim: int = 0
-    manual: bool = False
 
 
 @dataclass

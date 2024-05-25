@@ -89,6 +89,7 @@ class MainConfig:
     best_checkpoint_criterion: BaseMetric = field(default_factory=Top1Accuracy)
 
     _gpus: int = 1
+    _shared_filesystem: Optional[str] = None
     _repeat: int = 1
     _save_checkpoints: bool = False
     _seed: Optional[int] = None

@@ -25,10 +25,13 @@ def main(cfg: MainConfig) -> None:
     logger.info(f"Hydra output directory: {hydra_output_dir}")
 
     gpus = cfg._gpus
-    uuid_str = uuid.uuid4().hex
+    if cfg._shared_filesystem:
+        ddp_init_method = f"file://{cfg._shared_filesystem}/ddp_init_{uuid.uuid4().hex}"
+    else:
+        ddp_init_method = "tcp://localhost:12345"
     mp.spawn(
         start_pruning_experiment,
-        args=(gpus, cfg, hydra_output_dir, uuid_str),
+        args=(gpus, cfg, hydra_output_dir, ddp_init_method),
         nprocs=gpus,
         join=True,
     )
