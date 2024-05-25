@@ -10,6 +10,7 @@ from config.main_config import MainConfig
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torchvision import datasets, transforms
+from torch.utils.data.distributed import DistributedSampler
 
 
 def get_cifar10(
@@ -214,6 +215,8 @@ def get_dataloaders(
     cfg: MainConfig,
 ) -> tuple[DataLoader, DataLoader]:
     train_dataset, validate_dataset = get_dataset(cfg)
+    train_sampler = DistributedSampler(train_dataset) if cfg._gpus > 1 else None
+    validate_sampler = DistributedSampler(validate_dataset) if cfg._gpus > 1 else None
 
     train_loader = DataLoader(
         train_dataset,
@@ -221,6 +224,7 @@ def get_dataloaders(
         shuffle=True,
         pin_memory=cfg.dataloaders._pin_memory,
         num_workers=cfg.dataloaders._num_workers,
+        sampler=train_sampler,
     )
     validation_loader = DataLoader(
         validate_dataset,
@@ -228,6 +232,7 @@ def get_dataloaders(
         shuffle=False,
         pin_memory=cfg.dataloaders._pin_memory,
         num_workers=cfg.dataloaders._num_workers,
+        sampler=validate_sampler,
     )
 
     return train_loader, validation_loader

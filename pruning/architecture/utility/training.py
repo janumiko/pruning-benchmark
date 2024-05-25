@@ -6,9 +6,11 @@ from typing import Callable, Mapping, Sequence
 import numpy as np
 import pandas as pd
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +115,53 @@ def validate_epoch(
         metrics[name] /= len(valid_dl)
 
     return metrics
+
+
+def setup_ddp(rank: int, world_size: int, seed: int = None) -> None:
+    """Setup the distributed training environment.
+
+    Args:
+        rank (int): The rank of the process.
+        world_size (int): The number of processes.
+        seed (int, optional): The seed for reproducibility.
+    """
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12355"
+
+    if seed is not None:
+        set_reproducibility(seed)
+
+    torch.cuda.set_device(rank)
+    dist.init_process_group(
+        backend="nccl",
+        init_method="env://",
+        world_size=world_size,
+        rank=rank,
+    )
+
+
+def cleanup_ddp() -> None:
+    """Cleanup the distributed training environment."""
+    dist.destroy_process_group()
+
+
+def gather_metrics(metrics: dict[str, float], world_size: int) -> dict[str, float]:
+    """Gather metrics from all processes.
+
+    Args:
+        metrics (dict[str, float]): Metrics dictionary.
+        world_size (int): Number of processes.
+
+    Returns:
+        dict[str, float]: Gathered metrics dictionary.
+    """
+    gathered_metrics = {}
+    for key in metrics.keys():
+        tensor = torch.tensor(metrics[key]).cuda()
+        dist.all_reduce(tensor, op=dist.ReduceOp.SUM)
+        gathered_metrics[key] = tensor.item() / world_size
+
+    return gathered_metrics
 
 
 def set_reproducibility(seed: int) -> None:

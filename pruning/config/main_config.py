@@ -37,7 +37,7 @@ class Pruning:
     scheduler: BasePruningSchedulerConfig = MISSING
     method: BasePruningMethodConfig = MISSING
     finetune_epochs: int = MISSING
-    _checkpoints_interval: Interval = field(default_factory=lambda: Interval(0.5, 1.0))
+    _checkpoints_interval: Interval = field(default_factory=lambda: Interval(0.0, 1.0))
 
 
 @dataclass
@@ -49,15 +49,9 @@ class Wandb:
 
 
 @dataclass
-class Seed:
-    is_set: bool = False
-    value: Optional[int] = MISSING
-
-
-@dataclass
 class Dataloaders:
     _pin_memory: bool = True
-    _num_workers: int = 4
+    _num_workers: int = 8
     batch_size: int = 128
 
 
@@ -94,9 +88,10 @@ class MainConfig:
     dataloaders: Dataloaders = field(default_factory=Dataloaders)
     best_checkpoint_criterion: BaseMetric = field(default_factory=Top1Accuracy)
 
+    _gpus: int = 1
     _repeat: int = 1
     _save_checkpoints: bool = False
-    _seed: Seed = field(default_factory=Seed)
+    _seed: Optional[int] = None
     _wandb: Wandb = field(default_factory=Wandb)
     _logging_level: str = "INFO"  # DEBUG
 
