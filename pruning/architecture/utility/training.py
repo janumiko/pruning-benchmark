@@ -140,8 +140,7 @@ def setup_ddp(rank: int, world_size: int, init_method: str, seed: int = None) ->
 
 
 def cleanup_ddp() -> None:
-    """Cleanup the distributed training environment.
-    """
+    """Cleanup the distributed training environment."""
     dist.barrier()
     dist.destroy_process_group()
 
@@ -157,7 +156,7 @@ def gather_metrics(metrics: dict[str, float], world_size: int) -> dict[str, floa
         dict[str, float]: Gathered metrics dictionary.
     """
     gathered_metrics = {}
-    
+
     for key in metrics.keys():
         tensor = torch.tensor(metrics[key]).cuda()
         dist.all_reduce(tensor, op=dist.ReduceOp.SUM, async_op=True)
