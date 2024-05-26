@@ -248,9 +248,9 @@ def prune_model(
         logger.info(f"Pruned: {pruned:.2f}%")
         logger.info(f"Model pruned: {model_pruned:.2f}%")
 
-        if round(pruned, 2) != round(pruned_checker, 2):
+        if abs(pruned - pruned_checker) > 0.01:
             logger.warning(
-                f"Pruned and model pruned percentages do not match: {round(pruned, 2)} != {round(pruned_checker, 2)}"
+                f"Pruned and pruned_checker percentages do not match: {round(pruned, 2)} != {round(pruned_checker, 2)}"
             )
 
         iteration_info = {
