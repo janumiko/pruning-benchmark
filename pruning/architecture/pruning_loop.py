@@ -192,6 +192,7 @@ def prune_model(
         columns=["pruned_precent", "top1_accuracy", "top5_accuracy", "total_epoch"]
     )
     total_epoch = 0
+    pruned_checker = 0
 
     early_stopper = utility.training.EarlyStopper(
         patience=cfg.early_stopper.patience,
@@ -210,10 +211,13 @@ def prune_model(
 
     for iteration, pruning_values in enumerate(pruning_steps):
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
+        pruned_checker += sum(pruning_values)
 
         # load last best checkpoint state dict
         if iteration and checkpoint_path.exists():
-            model.load_state_dict(torch.load(checkpoint_path, map_location={"cuda:0": f"cuda:{rank}"}))
+            model.load_state_dict(
+                torch.load(checkpoint_path, map_location={"cuda:0": f"cuda:{rank}"})
+            )
 
         if iteration == 0 or rank == 0:
             prune_module(
@@ -243,6 +247,12 @@ def prune_model(
         pruned, model_pruned = utility.pruning.calculate_pruning_ratio(model)
         logger.info(f"Pruned: {pruned:.2f}%")
         logger.info(f"Model pruned: {model_pruned:.2f}%")
+
+        if round(pruned, 2) != round(model_pruned, 2):
+            logger.warning(
+                f"Pruned and model pruned percentages do not match: {round(pruned, 2)} != {round(model_pruned, 2)}"
+            )
+
         iteration_info = {
             "iteration": iteration,
             "pruned_precent": round(pruned, 2),
