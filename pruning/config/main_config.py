@@ -51,6 +51,8 @@ class Wandb:
 @dataclass
 class Dataloaders:
     _pin_memory: bool = True
+    _drop_last: bool = False
+    _persistent_workers: bool = False
     _num_workers: int = 8
     batch_size: int = 128
 

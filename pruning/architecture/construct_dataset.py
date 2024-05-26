@@ -243,6 +243,8 @@ def get_dataloaders(
         pin_memory=cfg.dataloaders._pin_memory,
         num_workers=cfg.dataloaders._num_workers,
         sampler=train_sampler,
+        persistent_workers=cfg.dataloaders._persistent_workers,
+        drop_last=cfg.dataloaders._drop_last,
     )
     validation_loader = DataLoader(
         validate_dataset,
@@ -251,6 +253,7 @@ def get_dataloaders(
         pin_memory=cfg.dataloaders._pin_memory,
         num_workers=cfg.dataloaders._num_workers,
         sampler=validate_sampler,
+        persistent_workers=cfg.dataloaders._persistent_workers,
     )
 
     return train_loader, validation_loader
