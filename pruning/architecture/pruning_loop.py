@@ -212,7 +212,7 @@ def prune_model(
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
 
         # load last best checkpoint state dict
-        if checkpoint_path.exists():
+        if iteration and checkpoint_path.exists():
             model.load_state_dict(torch.load(checkpoint_path, map_location={"cuda:0": f"cuda:{rank}"}))
 
         if iteration == 0 or rank == 0:
@@ -253,6 +253,7 @@ def prune_model(
             logger.info(f"Epoch {epoch + 1}/{cfg.pruning.finetune_epochs}")
             total_epoch += 1
 
+            logger.debug("Training epoch")
             train_loss = utility.training.train_epoch(
                 module=model,
                 train_dl=train_dl,
@@ -261,6 +262,7 @@ def prune_model(
                 device=device,
             )
 
+            logger.debug("Validating epoch")
             metrics = utility.training.validate_epoch(
                 module=model,
                 valid_dl=valid_dl,
