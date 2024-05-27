@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 import random
 from typing import Callable, Mapping, Sequence
@@ -8,6 +9,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+
+logger = logging.getLogger(__name__)
 
 
 def train_epoch(
@@ -32,7 +35,12 @@ def train_epoch(
 
     module.train()
     train_loss = 0
-    for inputs, labels in train_dl:
+
+    total_samples = len(train_dl.dataset)
+    processed_samples = 0
+    log_batch_iter = max(1, len(train_dl) // 10)
+
+    for batch, (inputs, labels) in enumerate(train_dl):
         inputs, labels = inputs.to(device), labels.to(device)
 
         # Zero the parameter gradients
@@ -47,6 +55,11 @@ def train_epoch(
         optimizer.step()
 
         train_loss += loss.item()
+        processed_samples += len(inputs)
+        if batch % log_batch_iter == 0:
+            logger.debug(
+                f"Processed {processed_samples}/{total_samples} samples, loss: {loss.item():.6f}"
+            )
 
     return train_loss / len(train_dl)
 
@@ -74,8 +87,12 @@ def validate_epoch(
     metrics = {name: 0.0 for name in metrics_functions.keys()}
     metrics["validation_loss"] = 0.0
 
+    total_samples = len(valid_dl.dataset)
+    processed_samples = 0
+    log_batch_iter = max(1, len(valid_dl) // 10)
+
     with torch.no_grad():
-        for X, labels in valid_dl:
+        for batch, (X, labels) in enumerate(valid_dl):
             X, labels = X.to(device), labels.to(device)
             # Compute prediction error
             pred = module(X)
@@ -84,6 +101,13 @@ def validate_epoch(
             metrics["validation_loss"] += loss.item()
             for name, func in metrics_functions.items():
                 metrics[name] += func(pred, labels)
+
+            processed_samples += len(X)
+
+            if batch % log_batch_iter == 0:
+                logger.debug(
+                    f"Processed {processed_samples}/{total_samples} samples, loss: {loss.item():.6f}"
+                )
 
     for name, _ in metrics.items():
         metrics[name] /= len(valid_dl)
@@ -118,43 +142,50 @@ def create_output_csv(path: Path, columns: Sequence[str]) -> None:
 
 class EarlyStopper:
     """Early stopping class.
-    Monitors validation loss and stops training if it does not improve after a given patience.
-    Improvement is defined as validation loss < min_validation_loss + min_delta.
+    Monitors a given metric and stops training if it does not improve after a given patience.
     Patience is the number of epochs to wait for improvement before stopping.
     """
 
-    def __init__(self, patience: int, min_delta: float) -> None:
+    def __init__(self, patience: int, min_delta: float, is_decreasing: bool) -> None:
         """Initialize EarlyStopper.
 
         Args:
             patience (int): Number of epochs to wait for improvement.
             min_delta (float): Delta which which is used to decide epoch as improvement.
+            is_decreasing (bool): Whether the metric should be decreasing or increasing to be considered as improvement.
         """
 
         self.patience = patience
         self.min_delta = min_delta
         self.counter = 0
-        self.min_validation_loss = float("inf")
+        self.is_decreasing = is_decreasing
+        self.best_metric_value = float("inf") if is_decreasing else float("-inf")
 
-    def check_stop(self, validation_loss: float) -> bool:
+    def check_stop(self, metric_value: float) -> bool:
         """Check if training should be stopped.
 
         Args:
-            validation_loss (float): Validation loss.
-
+            metric_value (float): metric on which to check for improvement.
         Returns:
             bool: Boolean indicating whether training should be stopped.
         """
 
-        if validation_loss < self.min_validation_loss:
-            self.min_validation_loss = validation_loss
-            self.counter = 0
-        elif validation_loss > (self.min_validation_loss + self.min_delta):
-            self.counter += 1
+        if self.is_decreasing:
+            if metric_value < self.best_metric_value - self.min_delta:
+                self.best_metric_value = metric_value
+                self.counter = 0
+            else:
+                self.counter += 1
+        else:
+            if metric_value > self.best_metric_value + self.min_delta:
+                self.best_metric_value = metric_value
+                self.counter = 0
+            else:
+                self.counter += 1
 
         return self.counter >= self.patience
 
     def reset(self) -> None:
         """Reset the early stopper"""
         self.counter = 0
-        self.min_validation_loss = float("inf")
+        self.best_metric_value = float("inf") if self.is_decreasing else float("-inf")

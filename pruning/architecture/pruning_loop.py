@@ -6,10 +6,10 @@ from typing import Callable, Iterable, Mapping
 from architecture.construct_dataset import get_dataloaders
 from architecture.construct_model import construct_model, register_models
 from architecture.construct_optimizer import construct_optimizer
+from architecture.pruning_methods.methods import prune_module
 from architecture.pruning_methods.schedulers import construct_step_scheduler
 import architecture.utility as utility
-from config.main_config import Interval, MainConfig
-import numpy as np
+from config.main_config import TYPES_TO_PRUNE, MainConfig
 import pandas as pd
 import torch
 from torch import nn
@@ -17,25 +17,18 @@ import torch.nn.utils.prune as prune
 from wandb.sdk.wandb_run import Run
 
 logger = logging.getLogger(__name__)
-# TODO: somehow add the pruning classes to Hydra config
-PRUNING_CLASSES = (nn.Linear, nn.Conv2d, nn.BatchNorm2d)
 
 
 def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Device used: {device}")
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    logger.info(f"Starting experiment at {current_date}")
 
     register_models()
     base_model: nn.Module = construct_model(cfg).to(device)
     train_dl, valid_dl = get_dataloaders(cfg)
     cross_entropy = nn.CrossEntropyLoss()
-
-    early_stopper = None
-    if cfg.early_stopper.enabled:
-        early_stopper = utility.training.EarlyStopper(
-            patience=cfg.early_stopper.patience,
-            min_delta=cfg.early_stopper.min_delta,
-        )
 
     base_metrics = utility.training.validate_epoch(
         module=base_model,
@@ -60,6 +53,9 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
     group_name = utility.summary.get_run_group_name(cfg, current_date)
     results_list = []
 
+    if cfg.pruning.scheduler.name == "manual":
+        utility.pruning.validate_manual_pruning(base_model, cfg, TYPES_TO_PRUNE)
+
     for i in range(cfg._repeat):
         logger.info(f"Repeat {i+1}/{cfg._repeat}")
 
@@ -68,36 +64,40 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         )
 
         model = construct_model(cfg).to(device)
-        optimizer = construct_optimizer(cfg, model)
 
-        params_to_prune = utility.pruning.get_parameters_to_prune(model, PRUNING_CLASSES)
-        total_pruning_params = utility.pruning.calculate_parameters_amount(params_to_prune)
-        pruning_steps = list(construct_step_scheduler(params_to_prune, cfg.pruning.scheduler))
+        if (
+            "structured" in cfg.pruning.method.name
+            and "unstructured" not in cfg.pruning.method.name
+        ):
+            # add batchnorm layer to pruned parameters in case of structured
+            # needed to remove the corresponding batchnorm channels when pruning layers
+            params_to_prune = utility.pruning.get_parameters_to_prune(
+                model, (*TYPES_TO_PRUNE, nn.BatchNorm2d)
+            )
+        else:
+            params_to_prune = utility.pruning.get_parameters_to_prune(model, TYPES_TO_PRUNE)
+
+        pruning_steps = list(construct_step_scheduler(cfg.pruning.scheduler))
         total_params = utility.pruning.get_parameter_count(model)
 
         logger.info(
             f"Iterations: {len(pruning_steps)}\n"
-            f"Parameters to prune at each step: {pruning_steps}\n"
-            f"Pruning percentages at each step {[round(step / total_pruning_params, 4) for step in pruning_steps]}\n"
-            f"Total parameters to prune: {sum(pruning_steps)}/{total_params} "
-            f"({round(sum(pruning_steps)/total_params, 4)*100}%)"
+            f"Pruning percentages at each step {pruning_steps}\n"
+            f"Total parameters to prune: {int(sum([sum(step) for step in pruning_steps]) * total_params)} "
+            f"({round(sum([sum(step) for step in pruning_steps]) * 100, 2)}%)"
         )
 
         results = prune_model(
             model=model,
-            method=prune.L1Unstructured,
-            optimizer=optimizer,
+            cfg=cfg,
             loss_fn=cross_entropy,
             params_to_prune=params_to_prune,
             pruning_steps=pruning_steps,
-            finetune_epochs=cfg.pruning.finetune_epochs,
             train_dl=train_dl,
             valid_dl=valid_dl,
             device=device,
             metrics_dict=metric_functions,
             wandb_run=wandb_run,
-            checkpoints_interval=cfg.pruning._checkpoints_interval,
-            early_stopper=early_stopper,
         )
         results["repeat"] = i + 1
         results_list.append(results)
@@ -117,59 +117,86 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
 
         wandb_run.finish()
 
+    iterations = len(list(construct_step_scheduler(cfg.pruning.scheduler)))
     utility.summary.save_checkpoint_results(
-        cfg, pd.concat(results_list), out_directory, group_name
+        cfg,
+        pd.concat(results_list),
+        out_directory,
+        group_name,
+        iterations,
+        base_top1acc,
+        base_top5acc,
     )
 
 
 def prune_model(
     model: nn.Module,
-    method: prune.BasePruningMethod,
-    optimizer: torch.optim.Optimizer,
+    cfg: MainConfig,
     loss_fn: nn.Module,
     params_to_prune: Iterable[tuple[nn.Module, str]],
     pruning_steps: Iterable[int],
-    finetune_epochs: int,
     train_dl: torch.utils.data.DataLoader,
     valid_dl: torch.utils.data.DataLoader,
     metrics_dict: Mapping[str, Callable],
     wandb_run: Run,
-    checkpoints_interval: Interval,
     device: torch.device,
-    early_stopper: None | utility.training.EarlyStopper = None,
 ) -> pd.DataFrame:
     """Prune the model using the given method.
 
     Args:
         model (nn.Module): The model to prune.
-        method (prune.BasePruningMethod): The method to use for pruning.
-        optimizer (torch.optim.Optimizer): The optimizer to use for finetuning.
+        cfg (MainConfig): The configuration for the pruning method.
         loss_fn (nn.Module): The loss function to use for finetuning.
         params_to_prune (Iterable[tuple[nn.Module, str]]): The parameters to prune.
         pruning_steps (Iterable[int]): The number of parameters to prune at each step.
-        finetune_epochs (int): The number of epochs to finetune the model.
         train_dl (torch.utils.data.DataLoader): The training dataloader.
         valid_dl (torch.utils.data.DataLoader): The validation dataloader.
         metrics_dict (Mapping[str, Callable]): The metrics to log during finetuning.
         wandb_run (Run): The wandb object to use for logging.
-        checkpoints_interval (Interval): The interval to log checkpoints.
         device (torch.device): The device to use for training.
-        early_stopper (None | utility.training.EarlyStopper, optional): The early stopper to use for finetuning. Defaults to None.
 
     Returns:
         pd.DataFrame: The metrics for the pruned checkpoints.
     """
     checkpoints_data = pd.DataFrame(
-        columns=["pruned_precent", "top1_accuracy", "top5_accuracy", "epoch_mean", "epoch_std"]
+        columns=["pruned_precent", "top1_accuracy", "top5_accuracy", "total_epoch"]
     )
-    epochs = []
+    total_epoch = 0
 
-    for iteration, step in enumerate(pruning_steps):
+    early_stopper = utility.training.EarlyStopper(
+        patience=cfg.early_stopper.patience,
+        min_delta=cfg.early_stopper.min_delta,
+        is_decreasing=cfg.early_stopper.metric.is_decreasing,
+    )
+
+    checkpoint_criterion = cfg.best_checkpoint_criterion
+    best_checkpoint = {
+        "state_dict": None,
+        checkpoint_criterion.name: float("inf" if checkpoint_criterion.is_decreasing else "-inf"),
+        "epoch": None,
+        "metrics": None,
+    }
+
+    for iteration, pruning_values in enumerate(pruning_steps):
+        # reset optimizer in each pruning iteration
+        # load last best checkpoint state dict
+        optimizer = construct_optimizer(cfg, model)
+        if best_checkpoint["state_dict"]:
+            model.load_state_dict(best_checkpoint["state_dict"])
+
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
-        prune.global_unstructured(
-            params_to_prune,
-            pruning_method=method,
-            amount=step,
+        prune_module(
+            params=params_to_prune,
+            pruning_values=pruning_values,
+            pruning_cfg=cfg.pruning.method,
+        )
+
+        # save the first checkpoit after pruning iteration as a base and reset the information
+        best_checkpoint["state_dict"] = model.state_dict()
+        best_checkpoint["metrics"] = {}
+        best_checkpoint["epoch"] = 0
+        best_checkpoint[checkpoint_criterion.name] = float(
+            "inf" if checkpoint_criterion.is_decreasing else "-inf"
         )
 
         pruned, model_pruned = utility.pruning.calculate_pruning_ratio(model)
@@ -179,8 +206,9 @@ def prune_model(
             "model_pruned_precent": round(model_pruned, 2),
         }
 
-        for epoch in range(finetune_epochs):
-            logger.info(f"Epoch {epoch + 1}/{finetune_epochs}")
+        for epoch in range(cfg.pruning.finetune_epochs):
+            logger.info(f"Epoch {epoch + 1}/{cfg.pruning.finetune_epochs}")
+            total_epoch += 1
 
             train_loss = utility.training.train_epoch(
                 module=model,
@@ -204,31 +232,47 @@ def prune_model(
             # additonal epoch metrics
             metrics["training_loss"] = train_loss
             metrics["epoch"] = epoch + 1
-
             metrics.update(iteration_info)
             wandb_run.log(metrics)
 
-            if early_stopper and early_stopper.check_stop(metrics["validation_loss"]):
+            if checkpoint_criterion.is_decreasing == (
+                metrics[checkpoint_criterion.name] < best_checkpoint[checkpoint_criterion.name]
+            ):
+                logger.info(
+                    f"New best checkpoint found: {checkpoint_criterion.name}: {metrics[checkpoint_criterion.name]:.4f}"
+                )
+                best_checkpoint["state_dict"] = model.state_dict()
+                best_checkpoint[checkpoint_criterion.name] = metrics[checkpoint_criterion.name]
+                best_checkpoint["epoch"] = epoch + 1
+                best_checkpoint["metrics"] = metrics
+
+            if cfg.early_stopper.enabled and early_stopper.check_stop(
+                metrics[cfg.early_stopper.metric.name]
+            ):
                 logger.info(f"Early stopping after {epoch+1} epochs")
                 early_stopper.reset()
-                epochs.append(epoch + 1)
                 break
 
+        logger.info(f"Best checkpoint saved on epoch: {best_checkpoint['epoch']}")
+
         if (
-            checkpoints_interval.start * 100 <= pruned <= checkpoints_interval.end * 100
-            and finetune_epochs > 0
+            cfg.pruning._checkpoints_interval.start * 100
+            <= pruned
+            <= cfg.pruning._checkpoints_interval.end * 100
+            and cfg.pruning.finetune_epochs > 0
         ):
             # post epoch metrics
-            metrics["epoch_mean"] = np.mean(epochs) if epochs else finetune_epochs
-            metrics["epoch_std"] = np.std(epochs) if epochs else 0
+            metrics["total_epoch"] = total_epoch
+            best_checkpoint["metrics"]["total_epoch"] = total_epoch
 
             checkpoints_data.loc[iteration] = {
-                key: metrics[key] for key in checkpoints_data.columns
+                key: best_checkpoint["metrics"][key] for key in checkpoints_data.columns
             }
 
     # summary info
     summary = wandb_run.summary
     summary["final_pruned_percent"] = round(pruned, 2)
+    summary["total_epoch"] = total_epoch
 
     for module, name in params_to_prune:
         prune.remove(module, name)
