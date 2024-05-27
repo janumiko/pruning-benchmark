@@ -211,7 +211,7 @@ def prune_model(
 
     for iteration, pruning_values in enumerate(pruning_steps):
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
-        pruned_checker += sum(pruning_values)
+        pruned_checker += sum(pruning_values) * 100
 
         # load last best checkpoint state dict
         if iteration and checkpoint_path.exists():
@@ -249,7 +249,7 @@ def prune_model(
         logger.info(f"Model pruned: {model_pruned:.2f}%")
 
         assert (
-            abs(pruned - pruned_checker * 100) < 0.01
+            abs(pruned - pruned_checker) < 0.01
         ), f"Pruned and pruned_checker percentages do not match: {round(pruned, 2)} != {round(pruned_checker, 2)}"
 
         iteration_info = {
