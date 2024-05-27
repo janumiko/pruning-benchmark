@@ -11,7 +11,9 @@ import wandb
 logger = logging.getLogger(__name__)
 
 
-def config_logger(hydra_output_dir: str, rank: int = None, non_root_level: str = "WARNING") -> None:
+def config_logger(
+    hydra_output_dir: str, rank: int = None, non_root_level: str = "WARNING"
+) -> None:
     """Configure the logger based on the Hydra configuration settings.
 
     Args:
@@ -31,7 +33,6 @@ def config_logger(hydra_output_dir: str, rank: int = None, non_root_level: str =
                 handler["format"] = f"[RANK {rank}]{handler['format']}"
 
     logging.config.dictConfig(logging_conf)
-
 
 
 def get_run_group_name(cfg: MainConfig, current_date_str: str) -> str:
@@ -124,7 +125,9 @@ def create_config_dataframe(
     return config_df
 
 
-def create_wandb_run(cfg: MainConfig, group_name: str, run_name: str, logging: bool = True) -> wandb.sdk.wandb_run.Run:
+def create_wandb_run(
+    cfg: MainConfig, group_name: str, run_name: str, logging: bool = True
+) -> wandb.sdk.wandb_run.Run:
     """Create a W&B run based on the configuration settings.
     In case logging is disabled, it will create a dry-run.
 
@@ -178,7 +181,7 @@ def save_checkpoint_results(
     """
     results.to_csv(f"{out_directory}/pruning_results.csv", index=False, float_format="%.4f")
 
-    wandb_run = create_wandb_run(cfg, group_name, "pruning_results")
+    wandb_run = create_wandb_run(cfg, group_name, "pruning_results", cfg._wandb.logging)
     summary = wandb_run.summary
     summary["iterations"] = iterations
     summary["base_top1_accuracy"] = base_top1acc
