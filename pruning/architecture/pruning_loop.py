@@ -192,7 +192,9 @@ def prune_model(
         columns=["pruned_precent", "top1_accuracy", "top5_accuracy", "total_epoch"]
     )
     total_epoch = 0
-    pruned_checker = 0
+
+    # to check if the pruned percentage matches the expected percentage
+    pruned_percentage_match = 0
 
     early_stopper = utility.training.EarlyStopper(
         patience=cfg.early_stopper.patience,
@@ -211,7 +213,7 @@ def prune_model(
 
     for iteration, pruning_values in enumerate(pruning_steps):
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
-        pruned_checker += sum(pruning_values) * 100
+        pruned_percentage_match += sum(pruning_values) * 100
 
         # load last best checkpoint state dict
         if iteration and checkpoint_path.exists():
@@ -249,8 +251,8 @@ def prune_model(
         logger.info(f"Model pruned: {model_pruned:.2f}%")
 
         assert (
-            abs(pruned - pruned_checker) < 0.01
-        ), f"Pruned and pruned_checker percentages do not match: {round(pruned, 2)} != {round(pruned_checker, 2)}"
+            abs(pruned - pruned_percentage_match) < 0.01
+        ), f"Pruned and pruned_checker percentages do not match: {round(pruned, 2)} != {round(pruned_percentage_match, 2)}"
 
         iteration_info = {
             "iteration": iteration,
