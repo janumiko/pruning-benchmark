@@ -232,9 +232,9 @@ def get_dataloaders(
     Returns:
         tuple[DataLoader, DataLoader]: A tuple containing the train and validation data loaders.
     """
-    train_dataset, validate_dataset = get_dataset(cfg)
+    train_dataset, validation_dataset = get_dataset(cfg)
     train_sampler = DistributedSampler(train_dataset) if cfg._gpus > 1 else None
-    validate_sampler = DistributedSampler(validate_dataset) if cfg._gpus > 1 else None
+    validation_sampler = DistributedSampler(validation_dataset) if cfg._gpus > 1 else None
 
     train_loader = DataLoader(
         train_dataset,
@@ -247,12 +247,12 @@ def get_dataloaders(
         drop_last=cfg.dataloaders._drop_last,
     )
     validation_loader = DataLoader(
-        validate_dataset,
+        validation_dataset,
         batch_size=cfg.dataloaders.batch_size,
         shuffle=False,
         pin_memory=cfg.dataloaders._pin_memory,
         num_workers=cfg.dataloaders._num_workers,
-        sampler=validate_sampler,
+        sampler=validation_sampler,
         persistent_workers=cfg.dataloaders._persistent_workers,
     )
 
