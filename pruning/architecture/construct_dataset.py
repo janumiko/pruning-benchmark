@@ -9,6 +9,7 @@ from config.constants import (
 from config.main_config import MainConfig
 import torch
 from torch.utils.data import DataLoader, Dataset
+from torch.utils.data.distributed import DistributedSampler
 from torchvision import datasets, transforms
 
 
@@ -185,6 +186,15 @@ def get_imagenet1k(
 def get_dataset(
     cfg: MainConfig,
 ) -> tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]:
+    """
+    Get the dataset based on the provided configuration.
+
+    Args:
+        cfg (MainConfig): The main configuration object.
+
+    Returns:
+        tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]: A tuple containing the train and test datasets.
+    """
     match cfg.dataset.name.lower():
         case "cifar10":
             return get_cifar10(
@@ -213,21 +223,37 @@ def get_dataset(
 def get_dataloaders(
     cfg: MainConfig,
 ) -> tuple[DataLoader, DataLoader]:
-    train_dataset, validate_dataset = get_dataset(cfg)
+    """
+    Get train and validation data loaders.
+
+    Args:
+        cfg (MainConfig): The main configuration object.
+
+    Returns:
+        tuple[DataLoader, DataLoader]: A tuple containing the train and validation data loaders.
+    """
+    train_dataset, validation_dataset = get_dataset(cfg)
+    train_sampler = DistributedSampler(train_dataset) if cfg._gpus > 1 else None
+    validation_sampler = DistributedSampler(validation_dataset) if cfg._gpus > 1 else None
 
     train_loader = DataLoader(
         train_dataset,
         batch_size=cfg.dataloaders.batch_size,
-        shuffle=True,
+        shuffle=(train_sampler is None),
         pin_memory=cfg.dataloaders._pin_memory,
         num_workers=cfg.dataloaders._num_workers,
+        sampler=train_sampler,
+        persistent_workers=cfg.dataloaders._persistent_workers,
+        drop_last=cfg.dataloaders._drop_last,
     )
     validation_loader = DataLoader(
-        validate_dataset,
+        validation_dataset,
         batch_size=cfg.dataloaders.batch_size,
         shuffle=False,
         pin_memory=cfg.dataloaders._pin_memory,
         num_workers=cfg.dataloaders._num_workers,
+        sampler=validation_sampler,
+        persistent_workers=cfg.dataloaders._persistent_workers,
     )
 
     return train_loader, validation_loader

@@ -1,11 +1,12 @@
 import logging
 from pathlib import Path
+import uuid
 
 from architecture.pruning_loop import start_pruning_experiment
-import architecture.utility as utility
 from config.main_config import MainConfig
 import hydra
 from omegaconf import OmegaConf
+import torch.multiprocessing as mp
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +24,17 @@ def main(cfg: MainConfig) -> None:
     hydra_output_dir = Path(hydra.core.hydra_config.HydraConfig.get().runtime.output_dir)
     logger.info(f"Hydra output directory: {hydra_output_dir}")
 
-    if cfg._seed.is_set:
-        utility.training.set_reproducibility(cfg._seed.value)
-
-    start_pruning_experiment(cfg, hydra_output_dir)
+    gpus = cfg._gpus
+    if cfg._shared_filesystem:
+        ddp_init_method = f"file://{cfg._shared_filesystem}/ddp_init_{uuid.uuid4().hex}"
+    else:
+        ddp_init_method = "tcp://localhost:12345"
+    mp.spawn(
+        start_pruning_experiment,
+        args=(gpus, cfg, hydra_output_dir, ddp_init_method),
+        nprocs=gpus,
+        join=True,
+    )
 
 
 if __name__ == "__main__":

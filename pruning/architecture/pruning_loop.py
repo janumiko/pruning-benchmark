@@ -13,20 +13,35 @@ from config.main_config import TYPES_TO_PRUNE, MainConfig
 import pandas as pd
 import torch
 from torch import nn
+import torch.distributed as dist
 import torch.nn.utils.prune as prune
 from wandb.sdk.wandb_run import Run
 
 logger = logging.getLogger(__name__)
 
 
-def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logger.info(f"Device used: {device}")
+def start_pruning_experiment(
+    rank: int, world_size: int, cfg: MainConfig, out_directory: Path, ddp_init_method: str
+) -> None:
+    """Start the pruning experiment.
+
+    Args:
+        rank (int): The rank of the process.
+        world_size (int): The number of processes.
+        cfg (MainConfig): The configuration for the pruning experiment.
+        out_directory (Path): The output directory for the experiment.
+        ddp_init_method (str): The DDP initialization method.
+    """
     current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    group_name = utility.summary.get_run_group_name(cfg, current_date)
     logger.info(f"Starting experiment at {current_date}")
 
+    utility.training.setup_ddp(rank, world_size, ddp_init_method, cfg._seed)
+    utility.summary.config_logger(out_directory, rank)
+    device = torch.device(f"cuda:{rank}")
+
     register_models()
-    base_model: nn.Module = construct_model(cfg).to(device)
+    base_model: nn.Module = construct_model(cfg, rank)
     train_dl, valid_dl = get_dataloaders(cfg)
     cross_entropy = nn.CrossEntropyLoss()
 
@@ -40,6 +55,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         },
         device=device,
     )
+    base_metrics = utility.training.gather_metrics(base_metrics, world_size)
     base_top1acc = base_metrics["top1_accuracy"]
     base_top5acc = base_metrics["top5_accuracy"]
     logger.info(f"Base top-1 accuracy: {base_top1acc:.2f}%")
@@ -50,7 +66,6 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         "top5_accuracy": utility.metrics.top5_accuracy,
     }
 
-    group_name = utility.summary.get_run_group_name(cfg, current_date)
     results_list = []
 
     if cfg.pruning.scheduler.name == "manual":
@@ -60,10 +75,13 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         logger.info(f"Repeat {i+1}/{cfg._repeat}")
 
         wandb_run = utility.summary.create_wandb_run(
-            cfg, group_name, f"repeat_{i+1}/{cfg._repeat}"
+            cfg,
+            group_name,
+            f"repeat_{i+1}/{cfg._repeat}",
+            logging=(cfg._wandb.logging and rank == 0),
         )
 
-        model = construct_model(cfg).to(device)
+        model = construct_model(cfg, rank)
 
         if (
             "structured" in cfg.pruning.method.name
@@ -88,8 +106,11 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         )
 
         results = prune_model(
+            rank=rank,
+            world_size=world_size,
             model=model,
             cfg=cfg,
+            out_directory=out_directory,
             loss_fn=cross_entropy,
             params_to_prune=params_to_prune,
             pruning_steps=pruning_steps,
@@ -105,7 +126,7 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
         utility.pruning.log_parameters_sparsity(model, params_to_prune, logger)
         utility.pruning.log_module_sparsity(model, logger)
 
-        if cfg._save_checkpoints:
+        if cfg._save_checkpoints and rank == 0:
             current_date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
             torch.save(
                 model.state_dict(),
@@ -117,21 +138,27 @@ def start_pruning_experiment(cfg: MainConfig, out_directory: Path) -> None:
 
         wandb_run.finish()
 
-    iterations = len(list(construct_step_scheduler(cfg.pruning.scheduler)))
-    utility.summary.save_checkpoint_results(
-        cfg,
-        pd.concat(results_list),
-        out_directory,
-        group_name,
-        iterations,
-        base_top1acc,
-        base_top5acc,
-    )
+    if rank == 0:
+        iterations = len(list(construct_step_scheduler(cfg.pruning.scheduler)))
+        utility.summary.save_checkpoint_results(
+            cfg,
+            pd.concat(results_list),
+            out_directory,
+            group_name,
+            iterations,
+            base_top1acc,
+            base_top5acc,
+        )
+
+    utility.training.cleanup_ddp()
 
 
 def prune_model(
-    model: nn.Module,
+    rank: int,
+    world_size: int,
     cfg: MainConfig,
+    out_directory: Path,
+    model: nn.Module,
     loss_fn: nn.Module,
     params_to_prune: Iterable[tuple[nn.Module, str]],
     pruning_steps: Iterable[int],
@@ -144,8 +171,11 @@ def prune_model(
     """Prune the model using the given method.
 
     Args:
-        model (nn.Module): The model to prune.
+        rank (int): The rank of the process.
+        world_size (int): The number of processes.
         cfg (MainConfig): The configuration for the pruning method.
+        out_directory (Path): The output directory for the experiment.
+        model (nn.Module): The model to prune.
         loss_fn (nn.Module): The loss function to use for finetuning.
         params_to_prune (Iterable[tuple[nn.Module, str]]): The parameters to prune.
         pruning_steps (Iterable[int]): The number of parameters to prune at each step.
@@ -163,6 +193,9 @@ def prune_model(
     )
     total_epoch = 0
 
+    # to check if the pruned percentage matches the expected percentage
+    pruned_percentage_match = 0
+
     early_stopper = utility.training.EarlyStopper(
         patience=cfg.early_stopper.patience,
         min_delta=cfg.early_stopper.min_delta,
@@ -170,6 +203,7 @@ def prune_model(
     )
 
     checkpoint_criterion = cfg.best_checkpoint_criterion
+    checkpoint_path = Path(f"{out_directory}/best_checkpoint.pth")
     best_checkpoint = {
         "state_dict": None,
         checkpoint_criterion.name: float("inf" if checkpoint_criterion.is_decreasing else "-inf"),
@@ -178,20 +212,33 @@ def prune_model(
     }
 
     for iteration, pruning_values in enumerate(pruning_steps):
-        # reset optimizer in each pruning iteration
-        # load last best checkpoint state dict
-        optimizer = construct_optimizer(cfg, model)
-        if best_checkpoint["state_dict"]:
-            model.load_state_dict(best_checkpoint["state_dict"])
-
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
-        prune_module(
-            params=params_to_prune,
-            pruning_values=pruning_values,
-            pruning_cfg=cfg.pruning.method,
-        )
+        pruned_percentage_match += sum(pruning_values) * 100
 
-        # save the first checkpoit after pruning iteration as a base and reset the information
+        # load last best checkpoint state dict
+        if iteration and checkpoint_path.exists():
+            model.load_state_dict(
+                torch.load(checkpoint_path, map_location={"cuda:0": f"cuda:{rank}"})
+            )
+
+        if iteration == 0 or rank == 0:
+            prune_module(
+                params=params_to_prune,
+                pruning_values=pruning_values,
+                pruning_cfg=cfg.pruning.method,
+            )
+
+        logger.debug("Broadcasting buffers")
+        for name, buffer in model.named_buffers():
+            if name.endswith("_mask"):
+                dist.broadcast(buffer, src=0, async_op=True)
+        dist.barrier()
+
+        # reset optimizer in each pruning iteration
+        logger.debug("Constructing optimizer")
+        optimizer = construct_optimizer(cfg, model)
+
+        logger.debug("Creating checkpoint")
         best_checkpoint["state_dict"] = model.state_dict()
         best_checkpoint["metrics"] = {}
         best_checkpoint["epoch"] = 0
@@ -200,6 +247,13 @@ def prune_model(
         )
 
         pruned, model_pruned = utility.pruning.calculate_pruning_ratio(model)
+        logger.info(f"Pruned: {pruned:.2f}%")
+        logger.info(f"Model pruned: {model_pruned:.2f}%")
+
+        assert (
+            abs(pruned - pruned_percentage_match) < 0.01
+        ), f"Pruned and pruned_checker percentages do not match: {round(pruned, 2)} != {round(pruned_percentage_match, 2)}"
+
         iteration_info = {
             "iteration": iteration,
             "pruned_precent": round(pruned, 2),
@@ -210,6 +264,7 @@ def prune_model(
             logger.info(f"Epoch {epoch + 1}/{cfg.pruning.finetune_epochs}")
             total_epoch += 1
 
+            logger.debug("Training epoch")
             train_loss = utility.training.train_epoch(
                 module=model,
                 train_dl=train_dl,
@@ -218,6 +273,7 @@ def prune_model(
                 device=device,
             )
 
+            logger.debug("Validating epoch")
             metrics = utility.training.validate_epoch(
                 module=model,
                 valid_dl=valid_dl,
@@ -225,12 +281,13 @@ def prune_model(
                 metrics_functions=metrics_dict,
                 device=device,
             )
+            metrics["training_loss"] = train_loss
+            metrics = utility.training.gather_metrics(metrics, world_size)
 
             for key, value in metrics.items():
                 logger.info(f"{key}: {value:.4f}")
 
             # additonal epoch metrics
-            metrics["training_loss"] = train_loss
             metrics["epoch"] = epoch + 1
             metrics.update(iteration_info)
             wandb_run.log(metrics)
@@ -255,6 +312,11 @@ def prune_model(
 
         logger.info(f"Best checkpoint saved on epoch: {best_checkpoint['epoch']}")
 
+        if rank == 0:
+            logger.debug(f"Saving best checkpoint to {checkpoint_path}")
+            torch.save(best_checkpoint["state_dict"], checkpoint_path)
+        dist.barrier()
+
         if (
             cfg.pruning._checkpoints_interval.start * 100
             <= pruned
@@ -268,6 +330,11 @@ def prune_model(
             checkpoints_data.loc[iteration] = {
                 key: best_checkpoint["metrics"][key] for key in checkpoints_data.columns
             }
+
+    if rank == 0:
+        if checkpoint_path.exists():
+            logging.debug(f"Removing checkpoint file {checkpoint_path}")
+            checkpoint_path.unlink()
 
     # summary info
     summary = wandb_run.summary

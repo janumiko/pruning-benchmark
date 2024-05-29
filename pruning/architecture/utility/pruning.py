@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.utils.prune as prune
 
+
 def get_parameters_to_prune(
     model: nn.Module, types_to_prune: Iterable[nn.Module]
 ) -> list[tuple[nn.Module, str]]:
@@ -232,8 +233,8 @@ def validate_manual_pruning(
 
 def global_unstructured_modified(parameters, pruning_method, importance_scores=None, **kwargs):
     r"""
-        Modified version of torch.nn.utils.prune.global_l1_unstructured.
-        Removes the hooks with masks to reduce memory usage.
+    Modified version of torch.nn.utils.prune.global_l1_unstructured.
+    Removes the hooks with masks to reduce memory usage.
     """
     # ensure parameters is a list or generator of tuples
     if not isinstance(parameters, Iterable):
@@ -280,7 +281,6 @@ def global_unstructured_modified(parameters, pruning_method, importance_scores=N
     # Pointer for slicing the mask to match the shape of each parameter
     pointer = 0
     for module, name in parameters:
-
         param = getattr(module, name)
         # The length of the parameter
         num_param = param.numel()
@@ -289,7 +289,7 @@ def global_unstructured_modified(parameters, pruning_method, importance_scores=N
         # Assign the correct pre-computed mask to each parameter and add it
         # to the forward_pre_hooks like any other pruning method
         prune.custom_from_mask(module, name, mask=param_mask)
-        
+
         for k in list(module._forward_pre_hooks):
             hook = module._forward_pre_hooks[k]
             if isinstance(hook, prune.PruningContainer):

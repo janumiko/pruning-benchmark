@@ -49,15 +49,11 @@ class Wandb:
 
 
 @dataclass
-class Seed:
-    is_set: bool = False
-    value: Optional[int] = MISSING
-
-
-@dataclass
 class Dataloaders:
     _pin_memory: bool = True
-    _num_workers: int = 4
+    _drop_last: bool = False
+    _persistent_workers: bool = False
+    _num_workers: int = 8
     batch_size: int = 128
 
 
@@ -94,9 +90,11 @@ class MainConfig:
     dataloaders: Dataloaders = field(default_factory=Dataloaders)
     best_checkpoint_criterion: BaseMetric = field(default_factory=Top1Accuracy)
 
+    _gpus: int = 1
+    _shared_filesystem: Optional[str] = None
     _repeat: int = 1
     _save_checkpoints: bool = False
-    _seed: Seed = field(default_factory=Seed)
+    _seed: Optional[int] = None
     _wandb: Wandb = field(default_factory=Wandb)
     _logging_level: str = "INFO"  # DEBUG
 
