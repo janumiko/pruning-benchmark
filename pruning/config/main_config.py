@@ -37,7 +37,7 @@ class Pruning:
     scheduler: BasePruningSchedulerConfig = MISSING
     method: BasePruningMethodConfig = MISSING
     finetune_epochs: int = MISSING
-    _checkpoints_interval: Interval = field(default_factory=lambda: Interval(0.5, 1.0))
+    _checkpoints_interval: Interval = field(default_factory=lambda: Interval(0.0, 1.0))
 
 
 @dataclass
