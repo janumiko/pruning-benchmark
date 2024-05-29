@@ -15,6 +15,16 @@ def register_models() -> None:
 
 
 def construct_model(cfg: MainConfig, rank: int) -> nn.Module:
+    """
+    Constructs a model based on the provided configuration and rank.
+
+    Args:
+        cfg (MainConfig): The main configuration object.
+        rank (int): The rank of the model.
+
+    Returns:
+        nn.Module: The constructed model.
+    """
     model: nn.Module = create_model(
         model_name=cfg.model,
         num_classes=cfg.dataset._num_classes,
