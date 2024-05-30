@@ -252,6 +252,6 @@ def construct_patience_generator(patiences: list[int]) -> Generator[int, None, N
         Generator[int, None, None]: Generator which generates patience values.
     """
 
+    yield from patiences
     while True:
-        yield from patiences
         yield patiences[-1]
