@@ -196,12 +196,6 @@ def prune_model(
     # to check if the pruned percentage matches the expected percentage
     pruned_percentage_match = 0
 
-    early_stopper = utility.training.EarlyStopper(
-        patience=cfg.early_stopper.patience,
-        min_delta=cfg.early_stopper.min_delta,
-        is_decreasing=cfg.early_stopper.metric.is_decreasing,
-    )
-
     checkpoint_criterion = cfg.best_checkpoint_criterion
     checkpoint_path = Path(f"{out_directory}/best_checkpoint.pth")
     best_checkpoint = {
@@ -210,6 +204,7 @@ def prune_model(
         "epoch": None,
         "metrics": None,
     }
+    patience_generator = utility.training.construct_patience_generator(cfg.early_stopper.patiences)
 
     for iteration, pruning_values in enumerate(pruning_steps):
         logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
@@ -237,6 +232,14 @@ def prune_model(
         # reset optimizer in each pruning iteration
         logger.debug("Constructing optimizer")
         optimizer = construct_optimizer(cfg, model)
+
+        patience = next(patience_generator)
+        logger.debug(f"Construct optimizer with patience {patience}")
+        early_stopper = utility.training.EarlyStopper(
+            patience=patience,
+            min_delta=cfg.early_stopper.min_delta,
+            is_decreasing=cfg.early_stopper.metric.is_decreasing,
+        )
 
         logger.debug("Creating checkpoint")
         best_checkpoint["state_dict"] = model.state_dict()

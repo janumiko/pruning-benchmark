@@ -60,7 +60,7 @@ class Dataloaders:
 @dataclass
 class EarlyStopperConfig:
     enabled: bool = False
-    patience: int = 5
+    patiences: list[int] = field(default_factory=lambda: [0])
     min_delta: float = 0
     metric: BaseMetric = field(
         default_factory=lambda: BaseMetric("validation_loss", is_decreasing=True)
