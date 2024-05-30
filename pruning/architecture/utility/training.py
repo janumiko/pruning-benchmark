@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 import random
-from typing import Callable, Mapping, Sequence
+from typing import Callable, Generator, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
@@ -239,3 +239,19 @@ class EarlyStopper:
         """Reset the early stopper"""
         self.counter = 0
         self.best_metric_value = float("inf") if self.is_decreasing else float("-inf")
+
+
+def construct_patience_generator(patiences: list[int]) -> Generator[int, None, None]:
+    """Construct a generator that repeats the given patiences.
+    Yield from patiences but if it ends empty the last value infinitely
+
+    Args:
+        patiences (list[int]): List of patiences.
+
+    Yields:
+        Generator[int, None, None]: Generator which generates patience values.
+    """
+
+    yield from patiences
+    while True:
+        yield patiences[-1]
