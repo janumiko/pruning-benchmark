@@ -83,6 +83,9 @@ Currently supported datasets include:
 ## Logging
 Currently the logging is logged using Hydra, but [Wandb](https://wandb.ai/site) is supported and recommended.
 
+## Checkpoints
+Our checkpoints are available on [dropbox](https://www.dropbox.com/scl/fo/u0d8a087o3c2ynzpb6chd/AJz5w2ozXzcrBzxUwXVMiYM?rlkey=gag0w2r89kmt1huek6zsy9re2&st=4guxofag&dl=0).
+
 ## Examples
 
 Structured manual pruning with 3 repeats and single pruning iteration and early stopping with patience for 10 epochs.
