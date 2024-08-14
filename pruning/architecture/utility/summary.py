@@ -126,7 +126,7 @@ def create_config_dataframe(
 
 
 def create_wandb_run(
-    cfg: MainConfig, group_name: str, run_name: str, logging: bool = True
+    cfg: MainConfig, group_name: str, run_name: str, logging: bool = True, dir: str=None
 ) -> wandb.sdk.wandb_run.Run:
     """Create a W&B run based on the configuration settings.
     In case logging is disabled, it will create a dry-run.
@@ -152,6 +152,7 @@ def create_wandb_run(
             job_type=cfg._wandb.job_type,
             entity=cfg._wandb.entity,
             config=config,
+            dir=dir
         )
     else:
         wandb_run = wandb.init(mode="disabled")
@@ -181,7 +182,7 @@ def save_checkpoint_results(
     """
     results.to_csv(f"{out_directory}/pruning_results.csv", index=False, float_format="%.4f")
 
-    wandb_run = create_wandb_run(cfg, group_name, "pruning_results", cfg._wandb.logging)
+    wandb_run = create_wandb_run(cfg, group_name, "pruning_results", cfg._wandb.logging, dir=out_directory)
     summary = wandb_run.summary
     summary["iterations"] = iterations
     summary["base_top1_accuracy"] = base_top1acc

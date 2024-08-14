@@ -79,6 +79,7 @@ def start_pruning_experiment(
             group_name,
             f"repeat_{i+1}/{cfg._repeat}",
             logging=(cfg._wandb.logging and rank == 0),
+            dir=out_directory
         )
 
         model = construct_model(cfg, rank)
