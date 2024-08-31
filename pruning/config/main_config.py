@@ -5,7 +5,7 @@ from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
 from torch import nn
 
-from .datasets import CIFAR10, CIFAR100, BaseDataset, ImageNet1K
+from .datasets import CIFAR10, CIFAR100, BaseDataset, ImageNet1K, TinyStoriesGPTNeo
 from .methods import (
     BasePruningMethodConfig,
     GlobalL1UnstructuredConfig,
@@ -111,6 +111,7 @@ config_store.store(group="optimizer", name="sgd", node=SGD)
 config_store.store(group="dataset", name="cifar10", node=CIFAR10)
 config_store.store(group="dataset", name="cifar100", node=CIFAR100)
 config_store.store(group="dataset", name="imagenet1k", node=ImageNet1K)
+config_store.store(group="dataset", name="tiny_stories_gpt_neo", node=TinyStoriesGPTNeo)
 
 # pruning schedulers
 config_store.store(

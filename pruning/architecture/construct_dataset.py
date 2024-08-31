@@ -7,10 +7,12 @@ from config.constants import (
     IMAGENET1K_STD,
 )
 from config.main_config import MainConfig
+from datasets import load_dataset
 import torch
 from torch.utils.data import DataLoader, Dataset
 from torch.utils.data.distributed import DistributedSampler
 from torchvision import datasets, transforms
+from transformers import AutoTokenizer, DataCollatorForLanguageModeling
 
 
 def get_cifar10(
@@ -68,7 +70,7 @@ def get_cifar10(
         transform=test_transform,
     )
 
-    return train_dataset, validate_dataset
+    return train_dataset, validate_dataset, None
 
 
 def get_cifar100(
@@ -126,7 +128,7 @@ def get_cifar100(
         transform=test_transform,
     )
 
-    return train_dataset, validate_dataset
+    return train_dataset, validate_dataset, None
 
 
 def get_imagenet1k(
@@ -180,7 +182,48 @@ def get_imagenet1k(
         transform=test_transform,
     )
 
-    return train_dataset, validate_dataset
+    return train_dataset, validate_dataset, None
+
+
+def get_tinystories_gptneo(path: str, percent: int = 100) -> tuple[Dataset, Dataset]:
+    """Get the TinyStories dataset tokenized with GPT-Neo.
+
+    Args:
+        path (str): Path to the cache for the dataset.
+        percent (int, optional): Percentage of the original dataset to take. Defaults to 100.
+
+    Returns:
+        tuple[Dataset, Dataset]: _description_
+    """
+    tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125M")
+    tokenizer.pad_token = tokenizer.eos_token
+    # Load Dataset and Tokenizer
+    train_dataset = load_dataset("roneneldan/TinyStories", split="train", cache_dir=path)
+    val_dataset = load_dataset("roneneldan/TinyStories", split="validation", cache_dir=path)
+    # Tokenize the Dataset
+
+    # take the percent of the dataset
+    train_dataset = train_dataset.train_test_split(train_size=percent / 100)["train"]
+    val_dataset = val_dataset.train_test_split(train_size=percent / 100)["train"]
+
+    def tokenize_function(examples):
+        return tokenizer(
+            examples["text"],
+            truncation=True,  # Truncate if sequences are longer than max_length
+            max_length=256,
+        )
+
+    tokenized_train = train_dataset.map(
+        tokenize_function, batched=True, num_proc=32, remove_columns=["text"]
+    )
+    tokenized_val = val_dataset.map(
+        tokenize_function, batched=True, num_proc=32, remove_columns=["text"]
+    )
+
+    # Data collator to handle padding and create attention masks
+    data_collator = DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+
+    return tokenized_train, tokenized_val, data_collator
 
 
 def get_dataset(
@@ -216,6 +259,8 @@ def get_dataset(
                 resize_value=cfg.dataset.resize_value,
                 crop_value=cfg.dataset.crop_value,
             )
+        case "tiny_stories_gpt_neo":
+            return get_tinystories_gptneo(cfg.dataset._path, cfg.dataset.percent)
         case _:
             raise ValueError(f"Unknown dataset: {cfg.dataset.name}")
 
@@ -232,7 +277,7 @@ def get_dataloaders(
     Returns:
         tuple[DataLoader, DataLoader]: A tuple containing the train and validation data loaders.
     """
-    train_dataset, validation_dataset = get_dataset(cfg)
+    train_dataset, validation_dataset, collate_fn = get_dataset(cfg)
     train_sampler = DistributedSampler(train_dataset) if cfg._gpus > 1 else None
     validation_sampler = DistributedSampler(validation_dataset) if cfg._gpus > 1 else None
 
@@ -245,6 +290,7 @@ def get_dataloaders(
         sampler=train_sampler,
         persistent_workers=cfg.dataloaders._persistent_workers,
         drop_last=cfg.dataloaders._drop_last,
+        collate_fn=collate_fn,
     )
     validation_loader = DataLoader(
         validation_dataset,
@@ -254,6 +300,7 @@ def get_dataloaders(
         num_workers=cfg.dataloaders._num_workers,
         sampler=validation_sampler,
         persistent_workers=cfg.dataloaders._persistent_workers,
+        collate_fn=collate_fn,
     )
 
     return train_loader, validation_loader

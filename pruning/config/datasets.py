@@ -33,3 +33,10 @@ class ImageNet1K(BaseDataset):
     name: str = "imagenet1k"
     _path: str = "datasets/imagenet1k"
     _num_classes: int = 1000
+
+
+@dataclass
+class TinyStoriesGPTNeo(BaseDataset):
+    name: str = "tiny_stories_gpt_neo"
+    percent: int = 5
+    _path: str = "datasets/tiny_stories_gpt_neo"

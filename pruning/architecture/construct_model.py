@@ -27,8 +27,11 @@ def construct_model(cfg: MainConfig, rank: int) -> nn.Module:
     """
     model: nn.Module = create_model(
         model_name=cfg.model,
-        num_classes=cfg.dataset._num_classes,
     )
     model.to(rank)
-    logger.info(model.load_state_dict(torch.load(cfg._checkpoint_path, map_location={"cuda:0": f"cuda:{rank}"})))
+    logger.info(
+        model.load_state_dict(
+            torch.load(cfg._checkpoint_path, map_location={"cuda:0": f"cuda:{rank}"})
+        )
+    )
     return DistributedDataParallel(model, device_ids=[rank])

@@ -48,24 +48,11 @@ def start_pruning_experiment(
     base_metrics = utility.training.validate_epoch(
         module=base_model,
         valid_dl=valid_dl,
-        loss_function=cross_entropy,
-        metrics_functions={
-            "top1_accuracy": utility.metrics.accuracy,
-            "top5_accuracy": utility.metrics.top5_accuracy,
-        },
         device=device,
     )
     base_metrics = utility.training.gather_metrics(base_metrics, world_size)
-    base_top1acc = base_metrics["top1_accuracy"]
-    base_top5acc = base_metrics["top5_accuracy"]
-    logger.info(f"Base top-1 accuracy: {base_top1acc:.2f}%")
-    logger.info(f"Base top-5 accuracy: {base_top5acc:.2f}%")
 
-    metric_functions = {
-        "top1_accuracy": utility.metrics.accuracy,
-        "top5_accuracy": utility.metrics.top5_accuracy,
-    }
-
+    metric_functions = {}
     results_list = []
 
     if cfg.pruning.scheduler.name == "manual":
@@ -97,7 +84,9 @@ def start_pruning_experiment(
 
         pruning_steps = list(construct_step_scheduler(cfg.pruning.scheduler))
         total_params = utility.pruning.get_parameter_count(model)
+        parameter_total_count = utility.pruning.calculate_parameters_amount(params_to_prune)
 
+        logger.info(f"Total paremeters of pruned modules: {parameter_total_count}")
         logger.info(
             f"Iterations: {len(pruning_steps)}\n"
             f"Pruning percentages at each step {pruning_steps}\n"
@@ -133,9 +122,6 @@ def start_pruning_experiment(
                 out_directory / f"{cfg.model}_{i}_{current_date}.pth",
             )
 
-        wandb_run.summary["base_top1_accuracy"] = base_top1acc
-        wandb_run.summary["base_top5_accuracy"] = base_top5acc
-
         wandb_run.finish()
 
     if rank == 0:
@@ -146,8 +132,6 @@ def start_pruning_experiment(
             out_directory,
             group_name,
             iterations,
-            base_top1acc,
-            base_top5acc,
         )
 
     utility.training.cleanup_ddp()
@@ -271,7 +255,6 @@ def prune_model(
             train_loss = utility.training.train_epoch(
                 module=model,
                 train_dl=train_dl,
-                loss_function=loss_fn,
                 optimizer=optimizer,
                 device=device,
             )
@@ -280,8 +263,6 @@ def prune_model(
             metrics = utility.training.validate_epoch(
                 module=model,
                 valid_dl=valid_dl,
-                loss_function=loss_fn,
-                metrics_functions=metrics_dict,
                 device=device,
             )
             metrics["training_loss"] = train_loss

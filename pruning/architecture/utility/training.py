@@ -1,4 +1,5 @@
 import logging
+import math
 from pathlib import Path
 import random
 from typing import Callable, Generator, Mapping, Sequence
@@ -18,7 +19,6 @@ def train_epoch(
     module: nn.Module,
     train_dl: DataLoader,
     optimizer: optim.Optimizer,
-    loss_function: Callable,
     device: torch.device,
 ) -> float:
     """Train a module for one epoch.
@@ -41,23 +41,21 @@ def train_epoch(
     processed_samples = 0
     log_batch_iter = max(1, len(train_dl) // 10)
 
-    for batch, (inputs, labels) in enumerate(train_dl):
-        inputs, labels = inputs.to(device), labels.to(device)
+    for batch_num, batch in enumerate(train_dl):
+        # Move batch to the correct device
+        batch = {k: v.to(device) for k, v in batch.items()}
 
-        # Zero the parameter gradients
         optimizer.zero_grad()
-
-        # Compute prediction error
-        prediction = module(inputs)
-        loss = loss_function(prediction, labels)
-
-        # Backpropagation
+        outputs = module(**batch)
+        loss = outputs.loss
+        train_loss += loss.item()
         loss.backward()
         optimizer.step()
 
         train_loss += loss.item()
-        processed_samples += len(inputs)
-        if batch % log_batch_iter == 0:
+        processed_samples += len(batch)
+
+        if batch_num % log_batch_iter == 0:
             logger.debug(
                 f"Processed {processed_samples}/{total_samples} samples, loss: {loss.item():.6f}"
             )
@@ -68,15 +66,12 @@ def train_epoch(
 def validate_epoch(
     module: nn.Module,
     valid_dl: DataLoader,
-    loss_function: Callable,
-    metrics_functions: Mapping[str, Callable],
     device: torch.DeviceObjType,
 ) -> dict[str, float]:
     """Validate the model on given data.
     Args:
         model (nn.Module): PyTorch module.
         valid_dl (DataLoader): Dataloader for the validation data.
-        loss_function (Callable): Loss function callable.
         metrics_functions (Mapping[str, Callable]): Dictionary with metric_name : callable pairs.
         enable_autocast (bool, optional): Whether to use automatic mixed precision. Defaults to True.
         device (torch.device, optional): Pytorch device.
@@ -85,7 +80,7 @@ def validate_epoch(
     """
 
     module.eval()
-    metrics = {name: 0.0 for name in metrics_functions.keys()}
+    metrics = {}
     metrics["validation_loss"] = 0.0
 
     total_samples = len(valid_dl.dataset)
@@ -93,19 +88,18 @@ def validate_epoch(
     log_batch_iter = max(1, len(valid_dl) // 10)
 
     with torch.no_grad():
-        for batch, (X, labels) in enumerate(valid_dl):
-            X, labels = X.to(device), labels.to(device)
+        for batch_num, batch in enumerate(valid_dl):
+            # Move batch to the correct device
+            batch = {k: v.to(device) for k, v in batch.items()}
             # Compute prediction error
-            pred = module(X)
-            loss = loss_function(pred, labels)
+            outputs = module(**batch)
+            loss = outputs.loss
 
             metrics["validation_loss"] += loss.item()
-            for name, func in metrics_functions.items():
-                metrics[name] += func(pred, labels)
 
-            processed_samples += len(X)
+            processed_samples += len(batch)
 
-            if batch % log_batch_iter == 0:
+            if batch_num % log_batch_iter == 0:
                 logger.debug(
                     f"Processed {processed_samples}/{total_samples} samples, loss: {loss.item():.6f}"
                 )
@@ -113,6 +107,7 @@ def validate_epoch(
     for name, _ in metrics.items():
         metrics[name] /= len(valid_dl)
 
+    metrics["perplexity"] = math.exp(metrics["validation_loss"])
     return metrics
 
 
