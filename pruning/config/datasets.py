@@ -38,5 +38,5 @@ class ImageNet1K(BaseDataset):
 @dataclass
 class TinyStoriesGPTNeo(BaseDataset):
     name: str = "tiny_stories_gpt_neo"
-    percent: int = 5
+    percent: int = 1
     _path: str = "datasets/tiny_stories_gpt_neo"

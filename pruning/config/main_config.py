@@ -88,7 +88,7 @@ class MainConfig:
     pruning: Pruning = field(default_factory=Pruning)
     early_stopper: EarlyStopperConfig = field(default_factory=EarlyStopperConfig)
     dataloaders: Dataloaders = field(default_factory=Dataloaders)
-    best_checkpoint_criterion: BaseMetric = field(default_factory=Top1Accuracy)
+    best_checkpoint_criterion: BaseMetric = field(default_factory=ValidationLoss)
 
     _gpus: int = 1
     _shared_filesystem: Optional[str] = None

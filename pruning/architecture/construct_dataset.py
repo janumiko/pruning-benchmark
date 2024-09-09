@@ -203,8 +203,8 @@ def get_tinystories_gptneo(path: str, percent: int = 100) -> tuple[Dataset, Data
     # Tokenize the Dataset
 
     # take the percent of the dataset
-    train_dataset = train_dataset.train_test_split(train_size=percent / 100)["train"]
-    val_dataset = val_dataset.train_test_split(train_size=percent / 100)["train"]
+    train_dataset = train_dataset.train_test_split(train_size=percent / 100, seed=42)["train"]
+    val_dataset = val_dataset.train_test_split(train_size=percent / 100, seed=42)["train"]
 
     def tokenize_function(examples):
         return tokenizer(

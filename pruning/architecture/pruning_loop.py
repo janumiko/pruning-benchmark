@@ -82,16 +82,25 @@ def start_pruning_experiment(
         else:
             params_to_prune = utility.pruning.get_parameters_to_prune(model, TYPES_TO_PRUNE)
 
+        params_to_prune = params_to_prune[:-1]
         pruning_steps = list(construct_step_scheduler(cfg.pruning.scheduler))
         total_params = utility.pruning.get_parameter_count(model)
         parameter_total_count = utility.pruning.calculate_parameters_amount(params_to_prune)
+        logger.info(model)
 
+        logger.info(f"Amount of modules to prune: {len(params_to_prune)}")
+        logger.info(f"TOtal parmeteres of model: {total_params}")
         logger.info(f"Total paremeters of pruned modules: {parameter_total_count}")
+        logger.info(f"Pruning steps: {pruning_steps}")
         logger.info(
             f"Iterations: {len(pruning_steps)}\n"
             f"Pruning percentages at each step {pruning_steps}\n"
-            f"Total parameters to prune: {int(sum([sum(step) for step in pruning_steps]) * total_params)} "
+            f"Total parameters to prune: {int(sum([sum(step) for step in pruning_steps]) * parameter_total_count)} "
             f"({round(sum([sum(step) for step in pruning_steps]) * 100, 2)}%)"
+        )
+        total_pruned_params = sum([sum(step) for step in pruning_steps]) * parameter_total_count
+        logger.info(
+            f"Pruning percent of the model {total_pruned_params / total_params * 100:.2f}%"
         )
 
         results = prune_model(
@@ -172,9 +181,7 @@ def prune_model(
     Returns:
         pd.DataFrame: The metrics for the pruned checkpoints.
     """
-    checkpoints_data = pd.DataFrame(
-        columns=["pruned_precent", "top1_accuracy", "top5_accuracy", "total_epoch"]
-    )
+    checkpoints_data = pd.DataFrame(columns=["pruned_precent", "perplexity", "total_epoch"])
     total_epoch = 0
 
     # to check if the pruned percentage matches the expected percentage
@@ -201,6 +208,7 @@ def prune_model(
             )
 
         if iteration == 0 or rank == 0:
+            logger.info(f"Pruning the model with {pruning_values}")
             prune_module(
                 params=params_to_prune,
                 pruning_values=pruning_values,

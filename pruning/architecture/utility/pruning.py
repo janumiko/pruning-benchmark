@@ -1,9 +1,12 @@
+from logging import getLogger
 from typing import Iterable
 
 from config.main_config import MainConfig
 import torch
 import torch.nn as nn
 import torch.nn.utils.prune as prune
+
+logger = getLogger(__name__)
 
 
 def get_parameters_to_prune(
@@ -112,16 +115,25 @@ def calculate_pruning_ratio(model: nn.Module) -> float:
     pruned_parameters = 0
     total_parameters = 0
     total_model_parameters = sum(p.nelement() for p in model.parameters() if p.requires_grad)
+    logger.info(f"Calculate-pruning ratio: Total model parameters: {total_model_parameters}")
 
     named_buffer = dict(model.named_buffers())
 
-    for name, _ in model.named_parameters():
+    counter = 0
+    for name, param in model.named_parameters():
         if not name.endswith("_orig"):
+            logger.info(name)
             continue
+        elif param.requires_grad:
+            logger.info(name)
+            counter += 1
+            logger.info(counter)
 
         param = named_buffer[name.replace("_orig", "_mask")]
         total_parameters += param.nelement()
+        logger.info(f"Total parameters {total_parameters}")
         pruned_parameters += torch.sum(param == 0).item()
+        logger.info(f"Pruned parameters: {pruned_parameters}")
 
     pruned = pruned_parameters / total_parameters * 100
     model_pruned = pruned_parameters / total_model_parameters * 100

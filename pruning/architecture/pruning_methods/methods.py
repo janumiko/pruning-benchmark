@@ -68,7 +68,7 @@ def global_l1_unstructured(
     """
 
     amount_to_prune = int(calculate_parameters_amount(parameters_to_prune) * next(pruning_values))
-
+    logger.info(f"Pruning {amount_to_prune} parameters using L1 unstructured pruning.")
     global_unstructured_modified(
         parameters_to_prune,
         pruning_method=prune.L1Unstructured,
