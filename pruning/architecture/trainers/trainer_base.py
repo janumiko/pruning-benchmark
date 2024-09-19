@@ -39,7 +39,7 @@ class Trainer:
         self.optimizer = optimizer
 
         for epoch in range(self.epochs):
-            self._train_loop()
+            self.train_loop()
             if (epoch + 1) % self.epochs_per_validation == 0:
                 self.validate(self.model)
 
@@ -47,34 +47,10 @@ class Trainer:
         model = self._init_ddp(model)
         self.model = model
 
-        self._validation_loop()
+        self.validation_loop()
 
-    def train_step(self, batch, batch_idx):
-        pass
+    def train_loop(self):
+        raise NotImplementedError
 
-    def validation_step(self, batch, batch_idx):
-        pass
-
-    def on_train_start(self):
-        pass
-
-    def on_train_end(self):
-        pass
-
-    def on_validation_start(self):
-        pass
-
-    def on_validation_end(self):
-        pass
-
-    def _train_loop(self):
-        self.on_train_start()
-        for batch_idx, batch in enumerate(self.train_dataloader):
-            self.train_step(batch, batch_idx)
-        self.on_train_end()
-
-    def _validation_loop(self):
-        self.on_validation_start()
-        for batch_idx, batch in enumerate(self.val_dataloader):
-            self.validation_step(batch, batch_idx)
-        self.on_validation_end()
+    def validation_loop(self):
+        raise NotImplementedError
