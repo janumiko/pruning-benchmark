@@ -311,7 +311,7 @@ class GlobalUnstructuredPruner:
     def __init__(
         self,
         model: nn.Module,
-        pruning_ratio_dict: dict[nn.Module, list[float]],
+        pruning_ratio_dict: dict[nn.Module, float],
         ignored_layers: Iterable[nn.Module] = None,
         iterative_steps: int = 1,
         iterative_pruning_ratio_scheduler: typing.Callable[
@@ -336,19 +336,7 @@ class GlobalUnstructuredPruner:
         logger.info(f"Pruning thresholds: {self._pruning_thresholds}")
         logger.info(f"Ignored layers: {self._ignored_layers}")
 
-        seen_modules = set()
-        self._params_to_prune = []
-        for key in pruning_ratio_dict.keys():
-            for module in self._get_modules_to_prune(key):
-                if module in seen_modules:
-                    continue
-                seen_modules.add(module)
-
-                for name, param in module.named_parameters(recurse=False):
-                    if not param.requires_grad:
-                        continue
-                    self._params_to_prune.append((module, name))
-
+        self._params_to_prune = self._get_params_to_prune()
         logger.info(f"Parameters to prune: {self._params_to_prune}")
 
     def step(self) -> None:
@@ -369,10 +357,26 @@ class GlobalUnstructuredPruner:
             amount=self._pruning_thresholds[self.current_step],
         )
 
-    def _get_modules_to_prune(self, module: nn.Module) -> Generator[nn.Module, None, None]:
+    def _get_unignored_modules(self, module: nn.Module) -> Generator[nn.Module, None, None]:
         for child in module.children():
             if child in self._ignored_layers:
                 continue
 
             yield child
-            yield from self._get_modules_to_prune(child)
+            yield from self._get_unignored_modules(child)
+
+    def _get_params_to_prune(self) -> list[tuple[nn.Module, str]]:
+        seen_modules = set()
+        params_to_prune = []
+        for key in self._pruning_ratio_dict.keys():
+            for module in self._get_unignored_modules(key):
+                if module in seen_modules:
+                    continue
+                seen_modules.add(module)
+
+                for name, param in module.named_parameters(recurse=False):
+                    if not param.requires_grad:
+                        continue
+                    params_to_prune.append((module, name))
+
+        return params_to_prune
