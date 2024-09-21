@@ -1,5 +1,6 @@
 from logging import getLogger
-from typing import Iterable
+from typing import Generator, Iterable
+import typing
 
 from config.main_config import MainConfig
 import torch
@@ -119,21 +120,13 @@ def calculate_pruning_ratio(model: nn.Module) -> float:
 
     named_buffer = dict(model.named_buffers())
 
-    counter = 0
     for name, param in model.named_parameters():
         if not name.endswith("_orig"):
-            logger.info(name)
             continue
-        elif param.requires_grad:
-            logger.info(name)
-            counter += 1
-            logger.info(counter)
 
         param = named_buffer[name.replace("_orig", "_mask")]
         total_parameters += param.nelement()
-        logger.info(f"Total parameters {total_parameters}")
         pruned_parameters += torch.sum(param == 0).item()
-        logger.info(f"Pruned parameters: {pruned_parameters}")
 
     pruned = pruned_parameters / total_parameters * 100
     model_pruned = pruned_parameters / total_model_parameters * 100
@@ -312,3 +305,74 @@ def global_unstructured_modified(parameters, pruning_method, importance_scores=N
 
         # Increment the pointer to continue slicing the final_mask
         pointer += num_param
+
+
+class GlobalUnstructuredPruner:
+    def __init__(
+        self,
+        model: nn.Module,
+        pruning_ratio_dict: dict[nn.Module, list[float]],
+        ignored_layers: Iterable[nn.Module] = None,
+        iterative_steps: int = 1,
+        iterative_pruning_ratio_scheduler: typing.Callable[
+            [dict[nn.Module, float], int], list[float]
+        ] = None,
+    ) -> None:
+        self._model = model
+        self._pruning_ratio_dict = pruning_ratio_dict
+        self._ignored_layers = ignored_layers if ignored_layers else []
+        self._iterative_steps = iterative_steps
+        self._iterative_pruning_ratio_scheduler = iterative_pruning_ratio_scheduler
+        self.current_step = 0
+
+        self._pruning_thresholds = self._iterative_pruning_ratio_scheduler(
+            self._pruning_ratio_dict, self._iterative_steps
+        )
+        last_sum = 0
+        for i, t in enumerate(self._pruning_thresholds):
+            self._pruning_thresholds[i] = t - last_sum
+            last_sum += t
+
+        logger.info(f"Pruning thresholds: {self._pruning_thresholds}")
+        logger.info(f"Ignored layers: {self._ignored_layers}")
+
+        seen_modules = set()
+        self._params_to_prune = []
+        for key in pruning_ratio_dict.keys():
+            for module in self._get_modules_to_prune(key):
+                if module in seen_modules:
+                    continue
+                seen_modules.add(module)
+
+                for name, param in module.named_parameters(recurse=False):
+                    if not param.requires_grad:
+                        continue
+                    self._params_to_prune.append((module, name))
+
+        logger.info(f"Parameters to prune: {self._params_to_prune}")
+
+    def step(self) -> None:
+        if self.current_step >= self._iterative_steps:
+            logger.warning(
+                f"Executed more steps than expected: {self.current_step} out of {self._iterative_steps}"
+            )
+            self.current_step += 1
+            return
+
+        self._prune()
+        self.current_step += 1
+
+    def _prune(self) -> None:
+        global_unstructured_modified(
+            self._params_to_prune,
+            pruning_method=prune.L1Unstructured,
+            amount=self._pruning_thresholds[self.current_step],
+        )
+
+    def _get_modules_to_prune(self, module: nn.Module) -> Generator[nn.Module, None, None]:
+        for child in module.children():
+            if child in self._ignored_layers:
+                continue
+
+            yield child
+            yield from self._get_modules_to_prune(child)

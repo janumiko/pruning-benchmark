@@ -2,6 +2,7 @@ from typing import Generator
 
 from config.schedulers import BasePruningSchedulerConfig
 import numpy as np
+from torch import nn
 
 
 class BasePruningStepScheduler:
@@ -10,49 +11,52 @@ class BasePruningStepScheduler:
         self.end = end
         self.step = step
 
-    def __iter__(self) -> Generator[list[float], None, None]:
+    def __iter__(self) -> Generator[float, None, None]:
         raise NotImplementedError
+
+    def __call__(self, pruning_dict: dict[nn.Module, list[float]], steps: int) -> list[float]:
+        return list(self.__iter__())
 
 
 class ConstantStepScheduler(BasePruningStepScheduler):
-    def __iter__(self) -> Generator[list[float], None, None]:
+    def __iter__(self) -> Generator[float, None, None]:
         num_steps = round((self.end - self.start) / self.step)
 
         if self.start != 0:
-            yield [self.start]
+            yield self.start
 
         for _ in range(num_steps):
-            yield [self.step]
+            yield self.step
 
 
 class IterativeStepScheduler(BasePruningStepScheduler):
-    def __iter__(self) -> Generator[list[float], None, None]:
+    def __iter__(self) -> Generator[float, None, None]:
         nonpruned_percent = 1
 
         if self.start != 0:
-            yield [self.start]
+            yield self.start
             nonpruned_percent -= round(self.start * nonpruned_percent, 8)
             dummy_one = 1
-            
+
         # stop if pruned more than target pruning percentage - 0.1%
         while nonpruned_percent - (1 - self.end) > 0.001:
             if self.start != 0:
                 current_step = round(self.step * dummy_one, 8)
                 dummy_one -= current_step
                 dummy_one = round(dummy_one, 8)
-            else:    
+            else:
                 current_step = round(self.step * nonpruned_percent, 8)
 
             nonpruned_percent -= current_step
             nonpruned_percent = round(nonpruned_percent, 8)
 
             assert current_step > 0, "The pruning step is too small."
-            yield [current_step]
+            yield current_step
 
 
 class OneShotStepScheduler(BasePruningStepScheduler):
     def __iter__(self) -> Generator[list[float], None, None]:
-        yield [self.end]
+        yield self.end
 
 
 class LogarithmicStepScheduler(BasePruningStepScheduler):
@@ -61,7 +65,7 @@ class LogarithmicStepScheduler(BasePruningStepScheduler):
         total_sum = self.end - self.start
 
         if self.start != 0:
-            yield [self.start]
+            yield self.start
 
         values = np.geomspace(1, num_values, num=num_values)
 

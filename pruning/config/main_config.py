@@ -36,7 +36,7 @@ class Interval:
 class Pruning:
     scheduler: BasePruningSchedulerConfig = MISSING
     method: BasePruningMethodConfig = MISSING
-    finetune_epochs: int = MISSING
+    finetune_iterations: int = MISSING
     _checkpoints_interval: Interval = field(default_factory=lambda: Interval(0.0, 1.0))
 
 
@@ -89,6 +89,7 @@ class MainConfig:
     early_stopper: EarlyStopperConfig = field(default_factory=EarlyStopperConfig)
     dataloaders: Dataloaders = field(default_factory=Dataloaders)
     best_checkpoint_criterion: BaseMetric = field(default_factory=ValidationLoss)
+    iterations_per_validations: int = 10
 
     _gpus: int = 1
     _shared_filesystem: Optional[str] = None

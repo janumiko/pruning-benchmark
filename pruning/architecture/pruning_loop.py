@@ -1,5 +1,6 @@
 import datetime
 import logging
+import math
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
@@ -9,6 +10,7 @@ from architecture.construct_optimizer import construct_optimizer
 from architecture.pruning_methods.methods import prune_module
 from architecture.pruning_methods.schedulers import construct_step_scheduler
 import architecture.utility as utility
+from architecture.utility.pruning import GlobalUnstructuredPruner
 from config.main_config import TYPES_TO_PRUNE, MainConfig
 import pandas as pd
 import torch
@@ -95,10 +97,10 @@ def start_pruning_experiment(
         logger.info(
             f"Iterations: {len(pruning_steps)}\n"
             f"Pruning percentages at each step {pruning_steps}\n"
-            f"Total parameters to prune: {int(sum([sum(step) for step in pruning_steps]) * parameter_total_count)} "
-            f"({round(sum([sum(step) for step in pruning_steps]) * 100, 2)}%)"
+            f"Total parameters to prune: {int(sum(pruning_steps) * parameter_total_count)} "
+            f"({round(sum(pruning_steps) * 100, 2)}%)"
         )
-        total_pruned_params = sum([sum(step) for step in pruning_steps]) * parameter_total_count
+        total_pruned_params = sum(pruning_steps) * parameter_total_count
         logger.info(
             f"Pruning percent of the model {total_pruned_params / total_params * 100:.2f}%"
         )
@@ -109,14 +111,12 @@ def start_pruning_experiment(
             model=model,
             cfg=cfg,
             out_directory=out_directory,
-            loss_fn=cross_entropy,
             params_to_prune=params_to_prune,
-            pruning_steps=pruning_steps,
             train_dl=train_dl,
             valid_dl=valid_dl,
             device=device,
-            metrics_dict=metric_functions,
             wandb_run=wandb_run,
+            scheduler=construct_step_scheduler(cfg.pruning.scheduler),
         )
         results["repeat"] = i + 1
         results_list.append(results)
@@ -152,12 +152,10 @@ def prune_model(
     cfg: MainConfig,
     out_directory: Path,
     model: nn.Module,
-    loss_fn: nn.Module,
     params_to_prune: Iterable[tuple[nn.Module, str]],
-    pruning_steps: Iterable[int],
     train_dl: torch.utils.data.DataLoader,
     valid_dl: torch.utils.data.DataLoader,
-    metrics_dict: Mapping[str, Callable],
+    scheduler: Callable,
     wandb_run: Run,
     device: torch.device,
 ) -> pd.DataFrame:
@@ -181,8 +179,26 @@ def prune_model(
     Returns:
         pd.DataFrame: The metrics for the pruned checkpoints.
     """
-    checkpoints_data = pd.DataFrame(columns=["pruned_precent", "perplexity", "total_epoch"])
-    total_epoch = 0
+
+    nlp_trainer = utility.training.NLPTrainer(train_dl, valid_dl)
+    checkpoints_data = pd.DataFrame(
+        columns=["pruned_precent", "validation_perplexity", "total_iterations"]
+    )
+    total_iterations = 0
+
+    ignored_layers = []
+    for name, module in model.named_modules():
+        logger.info(f"Module name: {name}")
+        if name.removeprefix("module.") == "lm_head":
+            ignored_layers.append(module)
+
+    pruner = GlobalUnstructuredPruner(
+        model,
+        {model: cfg.pruning.scheduler.end},
+        iterative_steps=10,
+        iterative_pruning_ratio_scheduler=scheduler,
+        ignored_layers=ignored_layers,
+    )
 
     # to check if the pruned percentage matches the expected percentage
     pruned_percentage_match = 0
@@ -197,23 +213,18 @@ def prune_model(
     }
     patience_generator = utility.training.construct_patience_generator(cfg.early_stopper.patiences)
 
-    for iteration, pruning_values in enumerate(pruning_steps):
-        logger.info(f"Pruning iteration {iteration + 1}/{len(pruning_steps)}")
-        pruned_percentage_match += sum(pruning_values) * 100
+    for pruning_iteration in range(len(list(scheduler))):
+        logger.info(f"Pruning iteration {pruning_iteration + 1}/{len(list(scheduler))}")
 
         # load last best checkpoint state dict
-        if iteration and checkpoint_path.exists():
+        if pruning_iteration and checkpoint_path.exists():
             model.load_state_dict(
                 torch.load(checkpoint_path, map_location={"cuda:0": f"cuda:{rank}"})
             )
 
-        if iteration == 0 or rank == 0:
-            logger.info(f"Pruning the model with {pruning_values}")
-            prune_module(
-                params=params_to_prune,
-                pruning_values=pruning_values,
-                pruning_cfg=cfg.pruning.method,
-            )
+        if pruning_iteration == 0 or rank == 0:
+            logger.info("Pruning the model")
+            pruner.step()
 
         logger.debug("Broadcasting buffers")
         for name, buffer in model.named_buffers():
@@ -245,42 +256,47 @@ def prune_model(
         logger.info(f"Pruned: {pruned:.2f}%")
         logger.info(f"Model pruned: {model_pruned:.2f}%")
 
-        assert (
-            abs(pruned - pruned_percentage_match) < 0.01
-        ), f"Pruned and pruned_checker percentages do not match: {round(pruned, 2)} != {round(pruned_percentage_match, 2)}"
-
         iteration_info = {
-            "iteration": iteration,
+            "iteration": pruning_iteration,
             "pruned_precent": round(pruned, 2),
             "model_pruned_precent": round(model_pruned, 2),
         }
 
-        for epoch in range(cfg.pruning.finetune_epochs):
-            logger.info(f"Epoch {epoch + 1}/{cfg.pruning.finetune_epochs}")
-            total_epoch += 1
+        for iteration in range(
+            0, cfg.pruning.finetune_iterations + 1, cfg.iterations_per_validations
+        ):
+            logger.info(f"Iteration {iteration}/{cfg.pruning.finetune_iterations}")
+            total_iterations += 1
 
             logger.debug("Training epoch")
-            train_loss = utility.training.train_epoch(
+            train_losses = []
+            for _ in range(cfg.iterations_per_validations):
+                train_losses.append(
+                    nlp_trainer.train_batch_nlp(
+                        module=model,
+                        optimizer=optimizer,
+                        device=device,
+                    )
+                )
+
+            logger.info("Validating epoch")
+            avg_valid_loss = nlp_trainer.validate_nlp(
                 module=model,
-                train_dl=train_dl,
-                optimizer=optimizer,
                 device=device,
             )
 
-            logger.debug("Validating epoch")
-            metrics = utility.training.validate_epoch(
-                module=model,
-                valid_dl=valid_dl,
-                device=device,
-            )
-            metrics["training_loss"] = train_loss
+            avg_train_loss = sum(train_losses) / len(train_losses)
+            metrics = {"validation_loss": avg_train_loss}
+            metrics["training_loss"] = avg_valid_loss
+            metrics["training_perplexity"] = math.exp(avg_train_loss)
+            metrics["validation_perplexity"] = math.exp(avg_valid_loss)
             metrics = utility.training.gather_metrics(metrics, world_size)
 
             for key, value in metrics.items():
                 logger.info(f"{key}: {value:.4f}")
 
             # additonal epoch metrics
-            metrics["epoch"] = epoch + 1
+            metrics["iteration"] = iteration + 1
             metrics.update(iteration_info)
             wandb_run.log(metrics)
 
@@ -292,17 +308,17 @@ def prune_model(
                 )
                 best_checkpoint["state_dict"] = model.state_dict()
                 best_checkpoint[checkpoint_criterion.name] = metrics[checkpoint_criterion.name]
-                best_checkpoint["epoch"] = epoch + 1
+                best_checkpoint["iteration"] = iteration + 1
                 best_checkpoint["metrics"] = metrics
 
             if cfg.early_stopper.enabled and early_stopper.check_stop(
                 metrics[cfg.early_stopper.metric.name]
             ):
-                logger.info(f"Early stopping after {epoch+1} epochs")
+                logger.info(f"Early stopping after {total_iterations+1} iterations")
                 early_stopper.reset()
                 break
 
-        logger.info(f"Best checkpoint saved on epoch: {best_checkpoint['epoch']}")
+        logger.info(f"Best checkpoint saved on epoch: {best_checkpoint['iteration']}")
 
         if rank == 0:
             logger.debug(f"Saving best checkpoint to {checkpoint_path}")
@@ -313,11 +329,11 @@ def prune_model(
             cfg.pruning._checkpoints_interval.start * 100
             <= pruned
             <= cfg.pruning._checkpoints_interval.end * 100
-            and cfg.pruning.finetune_epochs > 0
+            and cfg.pruning.finetune_iterations > 0
         ):
             # post epoch metrics
-            metrics["total_epoch"] = total_epoch
-            best_checkpoint["metrics"]["total_epoch"] = total_epoch
+            metrics["total_iterations"] = total_iterations
+            best_checkpoint["metrics"]["total_iterations"] = total_iterations
 
             checkpoints_data.loc[iteration] = {
                 key: best_checkpoint["metrics"][key] for key in checkpoints_data.columns
@@ -331,7 +347,7 @@ def prune_model(
     # summary info
     summary = wandb_run.summary
     summary["final_pruned_percent"] = round(pruned, 2)
-    summary["total_epoch"] = total_epoch
+    summary["total_iterations"] = total_iterations
 
     for module, name in params_to_prune:
         prune.remove(module, name)

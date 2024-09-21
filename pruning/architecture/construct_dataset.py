@@ -210,7 +210,7 @@ def get_tinystories_gptneo(path: str, percent: int = 100) -> tuple[Dataset, Data
         return tokenizer(
             examples["text"],
             truncation=True,  # Truncate if sequences are longer than max_length
-            max_length=256,
+            max_length=512,
         )
 
     tokenized_train = train_dataset.map(

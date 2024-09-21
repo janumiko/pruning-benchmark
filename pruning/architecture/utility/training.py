@@ -3,6 +3,7 @@ import math
 from pathlib import Path
 import random
 from typing import Callable, Generator, Mapping, Sequence
+import typing
 
 import numpy as np
 import pandas as pd
@@ -250,3 +251,71 @@ def construct_patience_generator(patiences: list[int]) -> Generator[int, None, N
     yield from patiences
     while True:
         yield patiences[-1]
+
+
+class NLPTrainer:
+    def __init__(self, train_dl, valid_dl):
+        self.train_dl = train_dl
+        self.valid_dl = valid_dl
+        self.train_iterator = iter(train_dl)
+        self.valid_iterator = iter(valid_dl)
+
+    def train_batch_nlp(
+        self,
+        module: nn.Module,
+        optimizer: optim.Optimizer,
+        device: torch.device,
+    ) -> float:
+        """Train a module for a batch randomly sampled from the dataloader.
+
+        Args:
+            model (nn.Module): A PyTorch module.
+            optimizer (optim.Optimizer): Optimizer instance.
+            device (torch.device, optional): Pytorch device.
+
+        Returns:
+            float: Average loss for the batch.
+        """
+
+        module.train()
+
+        try:
+            batch = next(self.train_iterator)
+        except StopIteration:
+            self.train_iterator = iter(self.train_dl)
+            batch = next(self.train_iterator)
+
+        batch = {k: v.to(device) for k, v in batch.items()}
+        optimizer.zero_grad()
+        outputs = module(**batch)
+        loss = outputs.loss
+        loss.backward()
+        optimizer.step()
+
+        return loss.item()
+
+    def validate_nlp(
+        self,
+        module: nn.Module,
+        device: torch.device,
+    ) -> float:
+        """Validate a module for a batch over the validation dataloader.
+
+        Args:
+            model (nn.Module): A PyTorch module.
+            device (torch.device, optional): Pytorch device.
+
+        Returns:
+            float: Average loss.
+        """
+
+        module.eval()
+        total_loss = 0
+        with torch.no_grad():
+            for batch in self.valid_dl:
+                batch = {k: v.to(device) for k, v in batch.items()}
+                outputs = module(**batch)
+                loss = outputs.loss
+                total_loss += loss.item()
+
+        return total_loss / len(self.valid_dl)
