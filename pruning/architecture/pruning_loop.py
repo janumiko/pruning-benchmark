@@ -87,22 +87,12 @@ def start_pruning_experiment(
         params_to_prune = params_to_prune[:-1]
         pruning_steps = list(construct_step_scheduler(cfg.pruning.scheduler))
         total_params = utility.pruning.get_parameter_count(model)
-        parameter_total_count = utility.pruning.calculate_parameters_amount(params_to_prune)
         logger.info(model)
-
-        logger.info(f"Amount of modules to prune: {len(params_to_prune)}")
-        logger.info(f"TOtal parmeteres of model: {total_params}")
-        logger.info(f"Total paremeters of pruned modules: {parameter_total_count}")
+        logger.info(f"Total parmeteres of model: {total_params}")
         logger.info(f"Pruning steps: {pruning_steps}")
         logger.info(
             f"Iterations: {len(pruning_steps)}\n"
             f"Pruning percentages at each step {pruning_steps}\n"
-            f"Total parameters to prune: {int(sum(pruning_steps) * parameter_total_count)} "
-            f"({round(sum(pruning_steps) * 100, 2)}%)"
-        )
-        total_pruned_params = sum(pruning_steps) * parameter_total_count
-        logger.info(
-            f"Pruning percent of the model {total_pruned_params / total_params * 100:.2f}%"
         )
 
         results = prune_model(
@@ -111,7 +101,6 @@ def start_pruning_experiment(
             model=model,
             cfg=cfg,
             out_directory=out_directory,
-            params_to_prune=params_to_prune,
             train_dl=train_dl,
             valid_dl=valid_dl,
             device=device,
@@ -121,7 +110,7 @@ def start_pruning_experiment(
         results["repeat"] = i + 1
         results_list.append(results)
 
-        utility.pruning.log_parameters_sparsity(model, params_to_prune, logger)
+        # utility.pruning.log_parameters_sparsity(model, params_to_prune, logger)
         utility.pruning.log_module_sparsity(model, logger)
 
         if cfg._save_checkpoints and rank == 0:
@@ -152,7 +141,6 @@ def prune_model(
     cfg: MainConfig,
     out_directory: Path,
     model: nn.Module,
-    params_to_prune: Iterable[tuple[nn.Module, str]],
     train_dl: torch.utils.data.DataLoader,
     valid_dl: torch.utils.data.DataLoader,
     scheduler: Callable,
@@ -168,7 +156,6 @@ def prune_model(
         out_directory (Path): The output directory for the experiment.
         model (nn.Module): The model to prune.
         loss_fn (nn.Module): The loss function to use for finetuning.
-        params_to_prune (Iterable[tuple[nn.Module, str]]): The parameters to prune.
         pruning_steps (Iterable[int]): The number of parameters to prune at each step.
         train_dl (torch.utils.data.DataLoader): The training dataloader.
         valid_dl (torch.utils.data.DataLoader): The validation dataloader.
@@ -189,7 +176,7 @@ def prune_model(
     ignored_layers = []
     for name, module in model.named_modules():
         logger.info(f"Module name: {name}")
-        if name.removeprefix("module.") == "lm_head":
+        if name.removeprefix("module.") == "lm_head" or isinstance(module, nn.LayerNorm):
             ignored_layers.append(module)
 
     pruner = GlobalUnstructuredPruner(
@@ -199,9 +186,6 @@ def prune_model(
         iterative_pruning_ratio_scheduler=scheduler,
         ignored_layers=ignored_layers,
     )
-
-    # to check if the pruned percentage matches the expected percentage
-    pruned_percentage_match = 0
 
     checkpoint_criterion = cfg.best_checkpoint_criterion
     checkpoint_path = Path(f"{out_directory}/best_checkpoint.pth")
@@ -262,13 +246,12 @@ def prune_model(
             "model_pruned_precent": round(model_pruned, 2),
         }
 
-        for iteration in range(
-            0, cfg.pruning.finetune_iterations + 1, cfg.iterations_per_validations
-        ):
-            logger.info(f"Iteration {iteration}/{cfg.pruning.finetune_iterations}")
+        validations = cfg.pruning.finetune_iterations // cfg.iterations_per_validations
+        logger.info(f"Validations: {validations}")
+        for iteration in range(0, validations):
+            logger.info(f"Traininig-Validation cycle {iteration}/{validations}")
             total_iterations += 1
 
-            logger.debug("Training epoch")
             train_losses = []
             for _ in range(cfg.iterations_per_validations):
                 train_losses.append(
@@ -349,7 +332,6 @@ def prune_model(
     summary["final_pruned_percent"] = round(pruned, 2)
     summary["total_iterations"] = total_iterations
 
-    for module, name in params_to_prune:
-        prune.remove(module, name)
+    pruner.remove()
 
     return checkpoints_data

@@ -258,7 +258,6 @@ class NLPTrainer:
         self.train_dl = train_dl
         self.valid_dl = valid_dl
         self.train_iterator = iter(train_dl)
-        self.valid_iterator = iter(valid_dl)
 
     def train_batch_nlp(
         self,
@@ -312,7 +311,7 @@ class NLPTrainer:
         module.eval()
         total_loss = 0
         with torch.no_grad():
-            for batch in self.valid_dl:
+            for i, batch in enumerate(self.valid_dl):
                 batch = {k: v.to(device) for k, v in batch.items()}
                 outputs = module(**batch)
                 loss = outputs.loss

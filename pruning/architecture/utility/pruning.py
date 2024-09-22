@@ -1,6 +1,6 @@
 from logging import getLogger
-from typing import Generator, Iterable
 import typing
+from typing import Generator, Iterable
 
 from config.main_config import MainConfig
 import torch
@@ -380,3 +380,7 @@ class GlobalUnstructuredPruner:
                     params_to_prune.append((module, name))
 
         return params_to_prune
+
+    def remove(self) -> None:
+        for module, name in self._params_to_prune:
+            prune.remove(module, name)
