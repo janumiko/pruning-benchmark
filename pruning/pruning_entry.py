@@ -1,32 +1,44 @@
-import logging
 from pathlib import Path
 
-from architecture.pruning_loop import start_pruning_experiment
-import architecture.utility as utility
+from architecture.utils.pylogger import RankedLogger
 from config.main_config import MainConfig
 import hydra
 from omegaconf import OmegaConf
+import torch.multiprocessing as mp
+from pruning.architecture.utils.distributed import init_process_group
+from architecture.pruning import start_pruning_experiment
 
-logger = logging.getLogger(__name__)
+logger = RankedLogger(__name__, rank_zero_only=True)
 
 
-@hydra.main(config_path="config", config_name="main_config", version_base="1.2")
+def start_process(rank: int, cfg: MainConfig) -> None:
+    init_process_group(
+        rank=rank,
+        world_size=cfg.distributed.gpu,
+        init_method=cfg.distributed.init_method,
+    )
+    start_pruning_experiment(cfg)
+
+
+@hydra.main(config_path="config", config_name="main_config", version_base="1.3")
 def main(cfg: MainConfig) -> None:
     """Main function for the pruning entry point
 
     Args:
         cfg (MainConfig): Hydra config object with all the settings. (Located in config/main_config.py)
     """
-    logger.setLevel(cfg._logging_level)
-
     logger.info(OmegaConf.to_yaml(cfg))
-    hydra_output_dir = Path(hydra.core.hydra_config.HydraConfig.get().runtime.output_dir)
-    logger.info(f"Hydra output directory: {hydra_output_dir}")
+    logger.info(f"Hydra output directory: {cfg.paths.output_dir}")
 
-    if cfg._seed.is_set:
-        utility.training.set_reproducibility(cfg._seed.value)
-
-    start_pruning_experiment(cfg, hydra_output_dir)
+    if cfg.distributed.enabled:
+        mp.spawn(
+            start_process,
+            args=(cfg,),
+            nprocs=cfg.distributed.gpu,
+            join=True,
+        )
+    else:
+        start_pruning_experiment(cfg)
 
 
 if __name__ == "__main__":
