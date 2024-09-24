@@ -1,1 +1,1 @@
-from pruning.architecture.trainers.trainer_base import Trainer
+from architecture.trainers.trainer_base import Trainer
