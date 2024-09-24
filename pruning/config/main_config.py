@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Any, Optional
+import uuid
 
 from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
@@ -72,82 +73,27 @@ class EarlyStopperConfig:
 
 
 @dataclass
+class DistributedConfig:
+    enabled: bool = False
+    init_method: str = MISSING
+    world_size: int = MISSING
+
+
+@dataclass
 class MainConfig:
     defaults: list[Any] = field(
         default_factory=lambda: [
             "_self_",
-            {"optimizer": "_"},
-            {"dataset": "_"},
-            {"pruning.scheduler": "_"},
-            {"pruning.method": "_"},
-            {"early_stopper.metric": "validation_loss"},
+            {"paths": "default.yaml"},
+            {"hydra": "default.yaml"},
         ]
     )
+    paths: dict = field(default_factory=lambda: {})
+    run_id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
-    dataset: BaseDataset = MISSING
-    model: str = MISSING
-    _checkpoint_path: str = MISSING
-    optimizer: BaseOptimizer = MISSING
-
-    pruning: Pruning = field(default_factory=Pruning)
-    early_stopper: EarlyStopperConfig = field(default_factory=EarlyStopperConfig)
-    dataloaders: Dataloaders = field(default_factory=Dataloaders)
-    best_checkpoint_criterion: BaseMetric = field(default_factory=Top1Accuracy)
-
-    _repeat: int = 1
-    _save_checkpoints: bool = False
-    _seed: Seed = field(default_factory=Seed)
-    _wandb: Wandb = field(default_factory=Wandb)
-    _logging_level: str = "INFO"  # DEBUG
+    distributed: DistributedConfig = DistributedConfig()
 
 
 # register the config groups
 config_store = ConfigStore.instance()
 config_store.store(name="main_config", node=MainConfig)
-
-# optimizers
-config_store.store(group="optimizer", name="adamw", node=AdamW)
-config_store.store(group="optimizer", name="sgd", node=SGD)
-
-# datasets
-config_store.store(group="dataset", name="cifar10", node=CIFAR10)
-config_store.store(group="dataset", name="cifar100", node=CIFAR100)
-config_store.store(group="dataset", name="imagenet1k", node=ImageNet1K)
-
-# pruning schedulers
-config_store.store(
-    group="pruning.scheduler",
-    name=IterativeStepSchedulerConfig().name,
-    node=IterativeStepSchedulerConfig,
-)
-config_store.store(
-    group="pruning.scheduler",
-    name=OneShotStepSchedulerConfig().name,
-    node=OneShotStepSchedulerConfig,
-)
-config_store.store(
-    group="pruning.scheduler",
-    name=LogarithmicStepSchedulerConfig().name,
-    node=LogarithmicStepSchedulerConfig,
-)
-config_store.store(
-    group="pruning.scheduler",
-    name=ConstantStepSchedulerConfig().name,
-    node=ConstantStepSchedulerConfig,
-)
-config_store.store(
-    group="pruning.scheduler",
-    name=ManualSchedulerConfig().name,
-    node=ManualSchedulerConfig,
-)
-
-# pruning methods
-config_store.store(group="pruning.method", name=LnStructuredConfig().name, node=LnStructuredConfig)
-config_store.store(
-    group="pruning.method", name=GlobalL1UnstructuredConfig().name, node=GlobalL1UnstructuredConfig
-)
-
-# metrics
-config_store.store(group="early_stopper.metric", name=Top1Accuracy().name, node=Top1Accuracy)
-config_store.store(group="early_stopper.metric", name=Top5Accuracy().name, node=Top5Accuracy)
-config_store.store(group="early_stopper.metric", name=ValidationLoss().name, node=ValidationLoss)
