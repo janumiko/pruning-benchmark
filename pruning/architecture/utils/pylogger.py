@@ -3,7 +3,7 @@ from typing import Mapping
 
 import torch.distributed as dist
 
-from architecture.utils.ddp import get_rank
+from pruning.architecture.utils.distributed import get_rank
 
 
 def rank_prefixed_message(message: str, rank: int | None) -> str:
