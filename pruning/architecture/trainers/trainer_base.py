@@ -1,10 +1,8 @@
+from architecture.utils.pylogger import RankedLogger
+from architecture.utils.training_utils import EarlyStopper, RestoreCheckpoint
 import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
-from architecture.utils.pylogger import RankedLogger
-from architecture.utils.training_utils import EarlyStopper, RestoreCheckpoint
-from config.trainer import EarlyStopperConfig, RestoreCheckpointConfig
-
 
 logger = RankedLogger(__name__, rank_zero_only=True)
 
@@ -16,8 +14,8 @@ class Trainer:
         val_dataloader: DataLoader,
         epochs: int,
         epochs_per_validation: int,
-        early_stopper_cfg: EarlyStopperConfig,
-        restore_checkpoint_cfg: RestoreCheckpointConfig,
+        early_stopper: EarlyStopper,
+        restore_checkpoint: RestoreCheckpoint,
         device: torch.device,
         metrics_logger=None,
         distributed: bool = False,
@@ -26,8 +24,8 @@ class Trainer:
         self.val_dataloader = val_dataloader
         self.epochs = epochs
         self.epochs_per_validation = epochs_per_validation
-        self.early_stopper = EarlyStopper(**early_stopper_cfg)
-        self.restore_checkpoint = RestoreCheckpoint(**restore_checkpoint_cfg)
+        self.early_stopper = early_stopper
+        self.restore_checkpoint = restore_checkpoint
         self.metrics_logger = metrics_logger
         self.device = device
         self.distributed = distributed

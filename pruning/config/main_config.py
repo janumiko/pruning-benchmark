@@ -42,6 +42,7 @@ class MainConfig:
             {"hydra": "default.yaml"},
             {"optimizer": "_"},
             {"dataset": "_"},
+            {"trainer": "_"},
         ]
     )
     paths: dict = field(default_factory=lambda: {})
@@ -50,7 +51,7 @@ class MainConfig:
     group_id: Optional[str] = None
 
     distributed: DistributedConfig = DistributedConfig()
-    trainer: TrainerConfig = TrainerConfig()
+    trainer: TrainerConfig = MISSING
 
     model: ModelConfig = ModelConfig()
     optimizer: BaseOptimizer = MISSING

@@ -2,7 +2,6 @@ from pathlib import Path
 
 from architecture.construct_dataset import get_dataloaders
 from architecture.construct_model import construct_model, register_models
-from architecture.trainers.cv_trainer import CVTrainer
 from architecture.trainers.trainer_base import Trainer
 from architecture.utils import distributed_utils, training_utils
 from architecture.utils.pylogger import RankedLogger
@@ -33,14 +32,22 @@ def start_pruning_experiment(cfg: MainConfig) -> None:
 
     train_loader, val_loader = get_dataloaders(cfg)
     scheluder = ...
-    trainer = CVTrainer(
+    trainer = hydra.utils.instantiate(
+        cfg.trainer,
         train_dataloader=train_loader,
         val_dataloader=val_loader,
         device=f"cuda:{rank}",
-        metrics_logger=None,
+        metrics_logger=metrcis_logger,
         distributed=cfg.distributed.enabled,
-        **cfg.trainer,
     )
+    # trainer = CVTrainer(
+    #     train_dataloader=train_loader,
+    #     val_dataloader=val_loader,
+    #     device=f"cuda:{rank}",
+    #     metrics_logger=None,
+    #     distributed=cfg.distributed.enabled,
+    #     **cfg.trainer,
+    # )
     pruner = ...
 
     pruning_loop(cfg=cfg, model=model, scheduler=None, trainer=trainer, pruner=None)

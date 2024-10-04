@@ -1,10 +1,13 @@
-from dataclasses import dataclass, field
-from typing import Any, Optional
+from dataclasses import dataclass
+from typing import Any
+
+from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
 
 
 @dataclass
 class EarlyStopperConfig:
+    _target_: str = "architecture.utils.training_utils.EarlyStopper"
     enabled: bool = False
     monitor: str = "accuracy"
     patience: Any = MISSING
@@ -14,6 +17,7 @@ class EarlyStopperConfig:
 
 @dataclass
 class RestoreCheckpointConfig:
+    _target_: str = "architecture.utils.training_utils.RestoreCheckpoint"
     enabled: bool = True
     monitor: str = "accuracy"
     mode: str = "max"
@@ -22,7 +26,18 @@ class RestoreCheckpointConfig:
 
 @dataclass
 class TrainerConfig:
-    epochs: int = 10
+    _target_: str = MISSING
+    epochs: int = MISSING
     epochs_per_validation: int = 1
-    early_stopper_cfg: EarlyStopperConfig = EarlyStopperConfig()
-    restore_checkpoint_cfg: RestoreCheckpointConfig = RestoreCheckpointConfig()
+    early_stopper: EarlyStopperConfig = EarlyStopperConfig()
+    restore_checkpoint: RestoreCheckpointConfig = RestoreCheckpointConfig()
+
+
+@dataclass
+class ClassificationTrainerConfig(TrainerConfig):
+    _target_: str = "architecture.trainers.classification_trainer.ClassificationTrainer"
+    epochs: int = 10
+
+
+config_store = ConfigStore.instance()
+config_store.store(group="trainer", name="classification", node=ClassificationTrainerConfig)

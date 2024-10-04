@@ -7,7 +7,7 @@ from architecture.utils.pylogger import RankedLogger
 logger = RankedLogger(__name__, rank_zero_only=True)
 
 
-class CVTrainer(Trainer):
+class ClassificationTrainer(Trainer):
     def __init__(
         self,
         *args,
