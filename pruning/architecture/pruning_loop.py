@@ -4,6 +4,8 @@ import math
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
+import numpy as np
+
 from architecture.construct_dataset import get_dataloaders
 from architecture.construct_model import construct_model, register_models
 from architecture.construct_optimizer import construct_optimizer
@@ -45,16 +47,16 @@ def start_pruning_experiment(
     register_models()
     base_model: nn.Module = construct_model(cfg, rank)
     train_dl, valid_dl = get_dataloaders(cfg)
-    cross_entropy = nn.CrossEntropyLoss()
 
-    base_metrics = utility.training.validate_epoch(
-        module=base_model,
-        valid_dl=valid_dl,
-        device=device,
-    )
+    nlp_trainer = utility.training.NLPTrainer(train_dl, valid_dl)
+    base_loss = nlp_trainer.validate_nlp(module=base_model, device=device)
+
+    base_metrics = {}
+    base_metrics["base_validation_loss"] = base_loss
+    base_metrics["base_perplexity"] = math.exp(base_loss)
     base_metrics = utility.training.gather_metrics(base_metrics, world_size)
+    logger.info(f"Base metrics: {base_metrics}")
 
-    metric_functions = {}
     results_list = []
 
     if cfg.pruning.scheduler.name == "manual":
@@ -85,7 +87,8 @@ def start_pruning_experiment(
             params_to_prune = utility.pruning.get_parameters_to_prune(model, TYPES_TO_PRUNE)
 
         params_to_prune = params_to_prune[:-1]
-        pruning_steps = list(construct_step_scheduler(cfg.pruning.scheduler))
+        schedule = construct_step_scheduler(cfg.pruning.scheduler)
+        pruning_steps = schedule(cfg.pruning.target_sparsity, cfg.pruning.steps)
         total_params = utility.pruning.get_parameter_count(model)
         logger.info(model)
         logger.info(f"Total parmeteres of model: {total_params}")
@@ -105,7 +108,7 @@ def start_pruning_experiment(
             valid_dl=valid_dl,
             device=device,
             wandb_run=wandb_run,
-            scheduler=construct_step_scheduler(cfg.pruning.scheduler),
+            scheduler=schedule,
         )
         results["repeat"] = i + 1
         results_list.append(results)
@@ -123,7 +126,7 @@ def start_pruning_experiment(
         wandb_run.finish()
 
     if rank == 0:
-        iterations = len(list(construct_step_scheduler(cfg.pruning.scheduler)))
+        iterations = cfg.pruning.steps
         utility.summary.save_checkpoint_results(
             cfg,
             pd.concat(results_list),
@@ -181,9 +184,10 @@ def prune_model(
 
     pruner = GlobalUnstructuredPruner(
         model,
-        {model: cfg.pruning.scheduler.end},
-        iterative_steps=10,
-        iterative_pruning_ratio_scheduler=scheduler,
+        pruning_ratio=cfg.pruning.target_sparsity,
+        pruning_ratio_dict={model: cfg.pruning.target_sparsity},
+        iterative_steps=cfg.pruning.steps,
+        iterative_pruning_ratio_scheduler=lambda x, y: np.cumsum(scheduler(x, y)).tolist(),
         ignored_layers=ignored_layers,
     )
 
@@ -197,8 +201,8 @@ def prune_model(
     }
     patience_generator = utility.training.construct_patience_generator(cfg.early_stopper.patiences)
 
-    for pruning_iteration in range(len(list(scheduler))):
-        logger.info(f"Pruning iteration {pruning_iteration + 1}/{len(list(scheduler))}")
+    for pruning_iteration in range(cfg.pruning.steps):
+        logger.info(f"Pruning iteration {pruning_iteration + 1}/{cfg.pruning.steps}")
 
         # load last best checkpoint state dict
         if pruning_iteration and checkpoint_path.exists():
@@ -249,10 +253,11 @@ def prune_model(
         validations = cfg.pruning.finetune_iterations // cfg.iterations_per_validations
         logger.info(f"Validations: {validations}")
         for iteration in range(0, validations):
-            logger.info(f"Traininig-Validation cycle {iteration}/{validations}")
+            logger.info(f"Training-Validation cycle {iteration}/{validations - 1}")
             total_iterations += 1
 
             train_losses = []
+            logger.info(f"Training for {cfg.iterations_per_validations} batches per GPU")
             for _ in range(cfg.iterations_per_validations):
                 train_losses.append(
                     nlp_trainer.train_batch_nlp(
@@ -262,15 +267,15 @@ def prune_model(
                     )
                 )
 
-            logger.info("Validating epoch")
+            logger.info("Validation epoch")
             avg_valid_loss = nlp_trainer.validate_nlp(
                 module=model,
                 device=device,
             )
 
             avg_train_loss = sum(train_losses) / len(train_losses)
-            metrics = {"validation_loss": avg_train_loss}
-            metrics["training_loss"] = avg_valid_loss
+            metrics = {"validation_loss": avg_valid_loss}
+            metrics["training_loss"] = avg_train_loss
             metrics["training_perplexity"] = math.exp(avg_train_loss)
             metrics["validation_perplexity"] = math.exp(avg_valid_loss)
             metrics = utility.training.gather_metrics(metrics, world_size)
@@ -301,7 +306,7 @@ def prune_model(
                 early_stopper.reset()
                 break
 
-        logger.info(f"Best checkpoint saved on epoch: {best_checkpoint['iteration']}")
+        # logger.info(f"Best checkpoint saved on epoch: {best_checkpoint['iteration']}")
 
         if rank == 0:
             logger.debug(f"Saving best checkpoint to {checkpoint_path}")

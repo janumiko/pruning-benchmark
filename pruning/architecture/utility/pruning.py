@@ -311,6 +311,7 @@ class GlobalUnstructuredPruner:
     def __init__(
         self,
         model: nn.Module,
+        pruning_ratio: float,
         pruning_ratio_dict: dict[nn.Module, float],
         ignored_layers: Iterable[nn.Module] = None,
         iterative_steps: int = 1,
@@ -326,12 +327,11 @@ class GlobalUnstructuredPruner:
         self.current_step = 0
 
         self._pruning_thresholds = self._iterative_pruning_ratio_scheduler(
-            self._pruning_ratio_dict, self._iterative_steps
+            pruning_ratio, self._iterative_steps
         )
-        last_sum = 0
-        for i, t in enumerate(self._pruning_thresholds):
-            self._pruning_thresholds[i] = t - last_sum
-            last_sum += t
+        for i in range(len(self._pruning_thresholds) - 1, 0, -1):
+            self._pruning_thresholds[i] -= self._pruning_thresholds[i - 1]
+            self._pruning_thresholds[i] = round(self._pruning_thresholds[i], 8)
 
         logger.info(f"Pruning thresholds: {self._pruning_thresholds}")
         logger.info(f"Ignored layers: {self._ignored_layers}")
@@ -351,10 +351,15 @@ class GlobalUnstructuredPruner:
         self.current_step += 1
 
     def _prune(self) -> None:
+        amount_to_prune = int(
+            calculate_parameters_amount(self._params_to_prune)
+            * self._pruning_thresholds[self.current_step]
+        )
+
         global_unstructured_modified(
             self._params_to_prune,
             pruning_method=prune.L1Unstructured,
-            amount=self._pruning_thresholds[self.current_step],
+            amount=amount_to_prune,
         )
 
     def _get_unignored_modules(self, module: nn.Module) -> Generator[nn.Module, None, None]:

@@ -202,9 +202,10 @@ def get_tinystories_gptneo(path: str, percent: int = 100) -> tuple[Dataset, Data
     val_dataset = load_dataset("roneneldan/TinyStories", split="validation", cache_dir=path)
     # Tokenize the Dataset
 
-    # take the percent of the dataset
-    train_dataset = train_dataset.train_test_split(train_size=percent / 100, seed=42)["train"]
-    val_dataset = val_dataset.train_test_split(train_size=percent / 100, seed=42)["train"]
+    # take the percentage of the dataset
+    if percent < 100:
+        train_dataset = train_dataset.train_test_split(train_size=percent / 100, seed=42)["train"]
+        val_dataset = val_dataset.train_test_split(train_size=percent / 100, seed=42)["train"]
 
     def tokenize_function(examples):
         return tokenizer(
@@ -278,8 +279,10 @@ def get_dataloaders(
         tuple[DataLoader, DataLoader]: A tuple containing the train and validation data loaders.
     """
     train_dataset, validation_dataset, collate_fn = get_dataset(cfg)
-    train_sampler = DistributedSampler(train_dataset) if cfg._gpus > 1 else None
-    validation_sampler = DistributedSampler(validation_dataset) if cfg._gpus > 1 else None
+    train_sampler = DistributedSampler(train_dataset, seed=cfg._seed) if cfg._gpus > 1 else None
+    validation_sampler = (
+        DistributedSampler(validation_dataset, seed=cfg._seed) if cfg._gpus > 1 else None
+    )
 
     train_loader = DataLoader(
         train_dataset,

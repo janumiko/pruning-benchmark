@@ -16,9 +16,8 @@ from .optimizers import SGD, AdamW, BaseOptimizer
 from .schedulers import (
     BasePruningSchedulerConfig,
     ConstantStepSchedulerConfig,
-    IterativeStepSchedulerConfig,
-    LogarithmicStepSchedulerConfig,
-    ManualSchedulerConfig,
+    FewShotScheduleConfig,
+    GeometricStepSchedulerConfig,
     OneShotStepSchedulerConfig,
 )
 
@@ -38,6 +37,8 @@ class Pruning:
     method: BasePruningMethodConfig = MISSING
     finetune_iterations: int = MISSING
     _checkpoints_interval: Interval = field(default_factory=lambda: Interval(0.0, 1.0))
+    steps: int = MISSING
+    target_sparsity: float = MISSING
 
 
 @dataclass
@@ -117,8 +118,8 @@ config_store.store(group="dataset", name="tiny_stories_gpt_neo", node=TinyStorie
 # pruning schedulers
 config_store.store(
     group="pruning.scheduler",
-    name=IterativeStepSchedulerConfig().name,
-    node=IterativeStepSchedulerConfig,
+    name=GeometricStepSchedulerConfig().name,
+    node=GeometricStepSchedulerConfig,
 )
 config_store.store(
     group="pruning.scheduler",
@@ -127,18 +128,13 @@ config_store.store(
 )
 config_store.store(
     group="pruning.scheduler",
-    name=LogarithmicStepSchedulerConfig().name,
-    node=LogarithmicStepSchedulerConfig,
-)
-config_store.store(
-    group="pruning.scheduler",
     name=ConstantStepSchedulerConfig().name,
     node=ConstantStepSchedulerConfig,
 )
 config_store.store(
     group="pruning.scheduler",
-    name=ManualSchedulerConfig().name,
-    node=ManualSchedulerConfig,
+    name=FewShotScheduleConfig().name,
+    node=FewShotScheduleConfig,
 )
 
 # pruning methods
