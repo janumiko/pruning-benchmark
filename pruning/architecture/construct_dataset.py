@@ -233,9 +233,11 @@ def get_dataloaders(
         tuple[DataLoader, DataLoader]: A tuple containing the train and validation data loaders.
     """
     train_dataset, validation_dataset = get_dataset(cfg)
-    train_sampler = DistributedSampler(train_dataset) if cfg.distributed.enabled else None
+    train_sampler = (
+        DistributedSampler(train_dataset, seed=cfg.seed) if cfg.distributed.enabled else None
+    )
     validation_sampler = (
-        DistributedSampler(validation_dataset) if cfg.distributed.enabled else None
+        DistributedSampler(validation_dataset, seed=cfg.seed) if cfg.distributed.enabled else None
     )
 
     train_loader = DataLoader(
