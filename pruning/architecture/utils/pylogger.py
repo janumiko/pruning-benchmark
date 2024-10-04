@@ -3,8 +3,6 @@ from typing import Mapping
 
 import torch.distributed as dist
 
-from pruning.architecture.utils.distributed import get_rank
-
 
 def rank_prefixed_message(message: str, rank: int | None) -> str:
     """Add a prefix with the rank to a message."""
@@ -50,7 +48,7 @@ class RankedLogger(logging.LoggerAdapter):
             msg, kwargs = self.process(msg, kwargs)
 
             if dist.is_available() and dist.is_initialized():
-                current_rank = get_rank()
+                current_rank = dist.get_rank()
             else:
                 current_rank = None
 
