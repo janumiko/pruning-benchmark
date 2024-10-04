@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 logger = RankedLogger(__name__, rank_zero_only=True)
 
 
-class Trainer:
+class BaseTrainer:
     def __init__(
         self,
         train_dataloader: DataLoader,
@@ -48,12 +48,10 @@ class Trainer:
         self.model = model
         self.optimizer = optimizer
 
-        self.restore_checkpoint.reset()
-        self.early_stopper.reset(next_patience=True)
-
         logger.info("Initial fit validation")
         resutlts = self.validation_loop()
-        self.restore_checkpoint.update(self.model, resutlts)
+        self.restore_checkpoint.reset(init_results=resutlts)
+        self.early_stopper.reset(init_results=resutlts, next_patience=True)
 
         logger.info("Starting training loop")
         for epoch in range(self.epochs):

@@ -1,4 +1,4 @@
-from architecture.trainers import Trainer
+from architecture.trainers import BaseTrainer
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -7,7 +7,7 @@ from architecture.utils.pylogger import RankedLogger
 logger = RankedLogger(__name__, rank_zero_only=True)
 
 
-class ClassificationTrainer(Trainer):
+class ClassificationTrainer(BaseTrainer):
     def __init__(
         self,
         *args,

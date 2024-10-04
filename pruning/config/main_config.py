@@ -1,14 +1,15 @@
 from dataclasses import dataclass, field
+import random
 from typing import Any, Optional
 import uuid
-import random
 
 from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
 
 from .datasets import BaseDataset
 from .optimizers import BaseOptimizer
-from .trainer import TrainerConfig
+from .pruners import PrunerConfig
+from .trainers import TrainerConfig
 
 
 @dataclass
@@ -43,6 +44,7 @@ class MainConfig:
             {"optimizer": "_"},
             {"dataset": "_"},
             {"trainer": "_"},
+            {"pruner": "_"},
         ]
     )
     paths: dict = field(default_factory=lambda: {})
@@ -52,6 +54,7 @@ class MainConfig:
 
     distributed: DistributedConfig = DistributedConfig()
     trainer: TrainerConfig = MISSING
+    pruner: PrunerConfig = MISSING
 
     model: ModelConfig = ModelConfig()
     optimizer: BaseOptimizer = MISSING

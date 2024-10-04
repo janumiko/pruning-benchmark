@@ -55,8 +55,13 @@ class RestoreCheckpoint:
         if self.enabled and self._state_dict is not None:
             model.load_state_dict(self._state_dict)
 
-    def reset(self, state_dict: dict | None = None) -> None:
-        self.best_metric_value = float("inf") if self.mode == "min" else float("-inf")
+    def reset(
+        self, init_results: dict[str, float] | None = None, state_dict: dict | None = None
+    ) -> None:
+        if init_results is not None:
+            self.best_metric_value = init_results[self.monitor]
+        else:
+            self.best_metric_value = float("inf") if self.mode == "min" else float("-inf")
         self._state_dict = state_dict
 
 
@@ -116,9 +121,12 @@ class EarlyStopper:
 
         return self.counter >= self.current_patience
 
-    def reset(self, next_patience: bool = False) -> None:
+    def reset(self, init_results: dict[str, float] | None = None, next_patience: bool = False) -> None:
         self.counter = 0
-        self.best_metric_value = float("inf") if self.mode == "min" else float("-inf")
+        if init_results is not None:
+            self.best_metric_value = init_results[self.monitor]
+        else:
+            self.best_metric_value = float("inf") if self.mode == "min" else float("-inf")
 
         if next_patience:
             self.current_patience = next(self.patience_gen)

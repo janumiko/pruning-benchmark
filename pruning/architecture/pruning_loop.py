@@ -2,7 +2,7 @@ from pathlib import Path
 
 from architecture.construct_dataset import get_dataloaders
 from architecture.construct_model import construct_model, register_models
-from architecture.trainers.trainer_base import Trainer
+from architecture.trainers.trainer_base import BaseTrainer
 from architecture.utils import distributed_utils, training_utils
 from architecture.utils.pylogger import RankedLogger
 from config.main_config import MainConfig
@@ -40,34 +40,27 @@ def start_pruning_experiment(cfg: MainConfig) -> None:
         metrics_logger=metrcis_logger,
         distributed=cfg.distributed.enabled,
     )
-    # trainer = CVTrainer(
-    #     train_dataloader=train_loader,
-    #     val_dataloader=val_loader,
-    #     device=f"cuda:{rank}",
-    #     metrics_logger=None,
-    #     distributed=cfg.distributed.enabled,
-    #     **cfg.trainer,
-    # )
     pruner = ...
 
     pruning_loop(cfg=cfg, model=model, scheduler=None, trainer=trainer, pruner=None)
 
 
 def pruning_loop(
-    cfg: MainConfig, model: nn.Module, scheduler, trainer: Trainer, pruner: MetaPruner
+    cfg: MainConfig, model: nn.Module, scheduler, trainer: BaseTrainer, pruner: MetaPruner
 ):
+    checkpoint_path = Path(f"{cfg.paths.output_dir}/model_checkpoint.pth")
     # validate the model before pruning
     trainer.validate(model)
 
     # for loop
     # prune the model
     # save the model
-    save_model(model, "path_to_model.pth")
+    save_model(model, checkpoint_path)
 
     # if distributed
     # load the model for each process
     if cfg.distributed.enabled:
-        model = torch.load("path_to_model.pth")
+        model = torch.load(checkpoint_path)
         dist.barrier()
 
     # create optimizer
