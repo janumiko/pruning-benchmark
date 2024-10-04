@@ -45,6 +45,8 @@ class MainConfig:
             {"dataset": "_"},
             {"trainer": "_"},
             {"pruner": "_"},
+            {"pruner.pruning_scheduler": "_"},
+            {"pruner.importance": "_"},
         ]
     )
     paths: dict = field(default_factory=lambda: {})
