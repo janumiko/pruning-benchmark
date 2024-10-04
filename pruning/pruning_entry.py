@@ -5,7 +5,7 @@ from config.main_config import MainConfig
 import hydra
 from omegaconf import OmegaConf
 import torch.multiprocessing as mp
-from architecture.utils.distributed import init_process_group
+from architecture.utils.distributed_utils import init_process_group
 from architecture.pruning import start_pruning_experiment
 
 logger = RankedLogger(__name__, rank_zero_only=True)

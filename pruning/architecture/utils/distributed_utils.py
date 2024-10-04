@@ -17,11 +17,11 @@ def init_process_group(
     dist.barrier()
 
 
-def get_rank() -> int | None:
+def get_rank() -> int:
     """Get the rank of the current process."""
     if dist.is_available() and dist.is_initialized():
         return dist.get_rank()
-    return None
+    return 0
 
 
 def distributed_only(fn):
@@ -43,6 +43,6 @@ def rank_zero_only(fn):
             rank = dist.get_rank()
             if rank == 0:
                 return fn(*args, **kwargs)
-        return None
+        return fn(*args, **kwargs)
 
     return wrapped_fn
