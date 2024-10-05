@@ -59,8 +59,8 @@ def pruning_loop(
     # validate the model before pruning
     trainer.validate(model)
 
-    for step in range(pruner.scheduler_steps):
-        logger.info(f"Pruning step {step+1}/{pruner.scheduler_steps}")
+    for step in range(pruner.steps):
+        logger.info(f"Pruning step {step+1}/{pruner.steps}")
         # for loop
         # prune the model
         # save the model
@@ -85,7 +85,6 @@ def prune_model(pruner: BasePruner, checkpoint_path: str) -> None:
     pruner.step()
     print(pruner.statistics())
     save_model(pruner.model, checkpoint_path)
-
 
 
 @distributed_utils.rank_zero_only

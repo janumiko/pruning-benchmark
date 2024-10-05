@@ -55,17 +55,17 @@ class MainConfig:
     run_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     group_id: Optional[str] = None
 
-    distributed: DistributedConfig = DistributedConfig()
+    distributed: DistributedConfig = field(default_factory=DistributedConfig)
     trainer: TrainerConfig = MISSING
     pruner: PrunerConfig = MISSING
     model_pruning: dict = field(default_factory=dict)
 
-    model: ModelConfig = ModelConfig()
+    model: ModelConfig = field(default_factory=ModelConfig)
     optimizer: BaseOptimizer = MISSING
     dataset: BaseDataset = MISSING
 
-    train_dataloader: Dataloaders = Dataloaders(drop_last=True)
-    validation_dataloader: Dataloaders = Dataloaders(drop_last=False)
+    train_dataloader: Dataloaders = field(default_factory=Dataloaders)
+    validation_dataloader: Dataloaders = field(default_factory=Dataloaders)
 
 
 # register the config groups

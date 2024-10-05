@@ -1,9 +1,11 @@
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 
+from architecture.pruners.structured_magnitude_pruner import StructuredMagnitudePruner
 from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
-from .schedulers import BasePruningSchedulerConfig
+from torch_pruning.pruner.importance import GroupNormImportance
+
+from .schedulers import BasePruningScheduleConfig
 
 
 @dataclass
@@ -13,20 +15,23 @@ class BaseImportanceConfig:
 
 @dataclass
 class NormImportanceConfig(BaseImportanceConfig):
-    _target_: str = "torch_pruning.importance.GroupNormImportance"
+    _target_: str = f"{GroupNormImportance.__module__}.{GroupNormImportance.__qualname__}"
     p: int = 2
 
 
 @dataclass
 class PrunerConfig:
     _target_: str = MISSING
-    pruning_scheduler: BasePruningSchedulerConfig = MISSING
+    pruning_scheduler: BasePruningScheduleConfig = MISSING
+    steps: int = MISSING
     pruning_config: dict = MISSING
 
 
 @dataclass
 class StructuredMagnitudePrunerConfig(PrunerConfig):
-    _target_: str = "architecture.pruners.structured_magnitude_pruner.StructuredMagnitudePruner"
+    _target_: str = (
+        f"{StructuredMagnitudePruner.__module__}.{StructuredMagnitudePruner.__qualname__}"
+    )
     importance: BaseImportanceConfig = MISSING
 
 
