@@ -31,7 +31,6 @@ def start_pruning_experiment(cfg: MainConfig) -> None:
     model = construct_model(cfg)
 
     train_loader, val_loader = get_dataloaders(cfg)
-    scheluder = ...
     trainer = hydra.utils.instantiate(
         cfg.trainer,
         train_dataloader=train_loader,
@@ -40,7 +39,9 @@ def start_pruning_experiment(cfg: MainConfig) -> None:
         metrics_logger=metrcis_logger,
         distributed=cfg.distributed.enabled,
     )
-    pruner = ...
+    # pruner = hydra.utils.instantiate(
+    #     cfg.pruner, model=model, example_inputs=next(iter(train_loader))[0]
+    # )
 
     pruning_loop(cfg=cfg, model=model, scheduler=None, trainer=trainer, pruner=None)
 

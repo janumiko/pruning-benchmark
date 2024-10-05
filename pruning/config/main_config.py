@@ -32,6 +32,7 @@ class DistributedConfig:
 class ModelConfig:
     name: str = MISSING
     checkpoint_path: str = MISSING
+    pruning_config: dict = field(default_factory=lambda: {})
 
 
 @dataclass

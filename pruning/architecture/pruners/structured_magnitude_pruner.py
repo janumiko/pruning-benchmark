@@ -1,6 +1,7 @@
 from typing import Any, Callable, Iterable
 
 from architecture.pruners.pruner_base import BasePruner
+from architecture.pruners.scheluders import BasePruningScheduler
 import torch
 from torch import nn
 import torch_pruning as tp
@@ -13,19 +14,17 @@ class StructuredMagnitudePruner(BasePruner):
         model: nn.Module,
         example_inputs: torch.Tensor,
         pruning_ratio_dict: dict[nn.Module, float],
-        importance: Any,
-        global_pruning: bool = False,
+        pruning_scheduler: BasePruningScheduler,
+        importance: Callable,
         ignored_layers: Iterable[nn.Module] = None,
-        iterative_steps: int = 1,
-        iterative_pruning_ratio_scheduler: Callable[[float, int], list[float]] = None,
+        global_pruning: bool = False,
     ) -> None:
         super().__init__(
             model=model,
             example_inputs=example_inputs,
             pruning_ratio_dict=pruning_ratio_dict,
             ignored_layers=ignored_layers,
-            iterative_steps=iterative_steps,
-            iterative_pruning_ratio_scheduler=iterative_pruning_ratio_scheduler,
+            pruning_scheduler=pruning_scheduler,
         )
         self.pruner = tp.MetaPruner(
             model=self.model,
@@ -35,7 +34,7 @@ class StructuredMagnitudePruner(BasePruner):
             global_pruning=global_pruning,
             ignored_layers=self.ignored_layers,
             iterative_steps=self.pruning_scheduler.steps,
-            iterative_pruning_ratio_scheduler=...
+            iterative_pruning_ratio_scheduler=self._scheluder,
         )
 
         self.base_statistics = self.statistics()
@@ -52,6 +51,6 @@ class StructuredMagnitudePruner(BasePruner):
             "macs": macs,
             "nparams": nparams,
         }
-    
+
     def _scheluder(self, pruning_ratio: float, steps: int) -> list[float]:
-        return np.cumsum(self.pruning_scheduler())
+        return np.cumsum(self.pruning_scheduler(target_sparsity=pruning_ratio, steps=steps))
