@@ -19,6 +19,8 @@ def construct_model(cfg: MainConfig) -> nn.Module:
         model_name=cfg.model.name,
         num_classes=cfg.dataset.num_classes,
     )
-    logger.info(model.load_state_dict(torch.load(cfg.model.checkpoint_path, map_location="cpu")))
+    if checkpoint_path := cfg.model.checkpoint_path:
+        results = model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
+        logger.info(f"Loaded model from {checkpoint_path}: {results}")
 
     return model

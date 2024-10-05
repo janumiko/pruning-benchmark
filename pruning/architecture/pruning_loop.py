@@ -10,7 +10,7 @@ import hydra
 import torch
 from torch import nn
 import torch.distributed as dist
-from torch_pruning.pruner.algorithms.metapruner import MetaPruner
+from architecture.pruners.pruner_base import BasePruner
 
 logger = RankedLogger(__name__, rank_zero_only=True)
 
@@ -29,8 +29,12 @@ def start_pruning_experiment(cfg: MainConfig) -> None:
     register_models()
     rank = distributed_utils.get_rank()
     model = construct_model(cfg)
+    model = model.to(f"cuda:{rank}")
 
     train_loader, val_loader = get_dataloaders(cfg)
+    example_inputs = next(iter(train_loader))[0]
+    example_inputs = example_inputs.to(f"cuda:{rank}")
+
     trainer = hydra.utils.instantiate(
         cfg.trainer,
         train_dataloader=train_loader,
@@ -39,37 +43,52 @@ def start_pruning_experiment(cfg: MainConfig) -> None:
         metrics_logger=metrcis_logger,
         distributed=cfg.distributed.enabled,
     )
-    # pruner = hydra.utils.instantiate(
-    #     cfg.pruner, model=model, example_inputs=next(iter(train_loader))[0]
-    # )
+    pruner = hydra.utils.instantiate(
+        cfg.pruner,
+        model=model,
+        example_inputs=example_inputs,
+    )
 
-    pruning_loop(cfg=cfg, model=model, scheduler=None, trainer=trainer, pruner=None)
+    pruning_loop(cfg=cfg, rank=rank, model=model, trainer=trainer, pruner=pruner)
 
 
 def pruning_loop(
-    cfg: MainConfig, model: nn.Module, scheduler, trainer: BaseTrainer, pruner: MetaPruner
+    cfg: MainConfig, rank: int, model: nn.Module, trainer: BaseTrainer, pruner: BasePruner
 ):
     checkpoint_path = Path(f"{cfg.paths.output_dir}/model_checkpoint.pth")
     # validate the model before pruning
     trainer.validate(model)
 
-    # for loop
-    # prune the model
-    # save the model
-    save_model(model, checkpoint_path)
+    for step in range(pruner.scheduler_steps):
+        logger.info(f"Pruning step {step+1}/{pruner.scheduler_steps}")
+        # for loop
+        # prune the model
+        # save the model
+        prune_model(pruner, checkpoint_path)
 
-    # if distributed
-    # load the model for each process
-    if cfg.distributed.enabled:
-        model = torch.load(checkpoint_path)
-        dist.barrier()
+        # if distributed
+        # load the model for each process
+        if cfg.distributed.enabled:
+            model = torch.load(checkpoint_path)
+            dist.barrier()
 
-    # create optimizer
-    optimizer = hydra.utils.instantiate(cfg.optimizer, model.parameters())
-    # fit the model
-    trainer.fit(model, optimizer)
+        # create optimizer
+        optimizer = hydra.utils.instantiate(cfg.optimizer, model.parameters())
+        # fit the model
+        trainer.fit(model, optimizer)
+
+
+@distributed_utils.rank_zero_only
+def prune_model(pruner: BasePruner, checkpoint_path: str) -> None:
+    print(pruner.statistics())
+    print(pruner._pruner.current_step)
+    pruner.step()
+    print(pruner.statistics())
+    save_model(pruner.model, checkpoint_path)
+
 
 
 @distributed_utils.rank_zero_only
 def save_model(model: nn.Module, path: Path) -> None:
+    logger.info(f"Saving model to {path}")
     torch.save(model, path)

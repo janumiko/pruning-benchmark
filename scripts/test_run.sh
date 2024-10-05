@@ -11,3 +11,4 @@ python pruning_entry.py \
     optimizer=sgd \
     model.name=resnet18_cifar \
     model.checkpoint_path="checkpoints/resnet18_cifar10.pth"
+#    model.pruning_config="model_pruning/resnet18_cifar_test.yaml"
