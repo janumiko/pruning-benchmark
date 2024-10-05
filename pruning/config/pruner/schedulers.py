@@ -12,7 +12,7 @@ class BasePruningSchedulerConfig:
 
 @dataclass
 class OneShotPruningSchedulerConfig(BasePruningSchedulerConfig):
-    _target_: str = "architecture.pruning.schedulers.OneShotStepScheduler"
+    _target_: str = "architecture.pruners.scheluders.OneShotPruningScheduler"
     steps: int = 1
 
 

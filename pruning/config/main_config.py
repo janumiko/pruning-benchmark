@@ -8,7 +8,7 @@ from omegaconf import MISSING
 
 from .datasets import BaseDataset
 from .optimizers import BaseOptimizer
-from .pruners import PrunerConfig
+from .pruner.pruners import PrunerConfig
 from .trainers import TrainerConfig
 
 
@@ -32,7 +32,6 @@ class DistributedConfig:
 class ModelConfig:
     name: str = MISSING
     checkpoint_path: str = MISSING
-    pruning_config: dict = field(default_factory=lambda: {})
 
 
 @dataclass
@@ -48,9 +47,10 @@ class MainConfig:
             {"pruner": "_"},
             {"pruner.pruning_scheduler": "_"},
             {"pruner.importance": "_"},
+            {"pruner/pruning_config": "default.yaml"},
         ]
     )
-    paths: dict = field(default_factory=lambda: {})
+    paths: dict = field(default_factory=dict)
     seed: int = random.randint(0, 1e6)
     run_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     group_id: Optional[str] = None
@@ -58,6 +58,7 @@ class MainConfig:
     distributed: DistributedConfig = DistributedConfig()
     trainer: TrainerConfig = MISSING
     pruner: PrunerConfig = MISSING
+    model_pruning: dict = field(default_factory=dict)
 
     model: ModelConfig = ModelConfig()
     optimizer: BaseOptimizer = MISSING

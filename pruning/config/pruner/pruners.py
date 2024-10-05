@@ -21,11 +21,12 @@ class NormImportanceConfig(BaseImportanceConfig):
 class PrunerConfig:
     _target_: str = MISSING
     pruning_scheduler: BasePruningSchedulerConfig = MISSING
+    pruning_config: dict = MISSING
 
 
 @dataclass
 class StructuredMagnitudePrunerConfig(PrunerConfig):
-    _target_: str = "architecture.pruners.StructuredMagnitudePruner"
+    _target_: str = "architecture.pruners.structured_magnitude_pruner.StructuredMagnitudePruner"
     importance: BaseImportanceConfig = MISSING
 
 
