@@ -7,6 +7,9 @@ logger = logging.getLogger(__name__)
 
 
 class BasePruningSchedule:
+    def __init__(self, rounding_precision: int = 8):
+        self.rounding_precision = rounding_precision
+
     def __iter__(self) -> Generator[float, None, None]:
         raise NotImplementedError
 
@@ -38,7 +41,7 @@ class ConstantPruningSchedule(BasePruningSchedule):
 
         pruning_step = target_sparsity / steps
 
-        return [pruning_step for _ in range(steps)]
+        return [round(pruning_step, self.rounding_precision) for _ in range(steps)]
 
 
 class GeometricPruningSchedule(BasePruningSchedule):
@@ -57,7 +60,7 @@ class GeometricPruningSchedule(BasePruningSchedule):
 
         output_steps = []
         for _ in range(steps):
-            step = round(step, 8)
+            step = round(step, self.rounding_precision)
             output_steps.append(step)
             step *= 1 - initial_step
 
@@ -78,11 +81,12 @@ class OneShotPruningSchedule(BasePruningSchedule):
         if steps > 1:
             raise ValueError("One-shot pruning can only have one step.")
 
-        return [target_sparsity]
+        return [round(target_sparsity, self.rounding_precision)]
 
 
 class FewShotPruningSchedule(BasePruningSchedule):
-    def __init__(self, one_shot_step: float):
+    def __init__(self, rounding_precision: int, one_shot_step: float):
+        self.rounding_precision = rounding_precision
         self.one_shot_step = one_shot_step
 
     def __call__(self, target_sparsity: float, steps: int) -> list[float]:
@@ -101,7 +105,7 @@ class FewShotPruningSchedule(BasePruningSchedule):
 
         output_steps = []
         for _ in range(steps):
-            step = round(step, 8)
+            step = round(step, self.rounding_precision)
             output_steps.append(step)
             step *= 1 - initial_step
 
