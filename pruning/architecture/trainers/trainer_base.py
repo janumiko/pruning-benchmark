@@ -34,7 +34,7 @@ class BaseTrainer:
         self.optimizer = None
         self.current_epoch = 0
 
-        if self.early_stopper.overide_epochs_to_inf:
+        if self.early_stopper.override_epochs_to_inf:
             self.epochs = float("inf")
 
     def _init_ddp(self, model):

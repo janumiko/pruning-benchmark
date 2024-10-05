@@ -78,7 +78,7 @@ class EarlyStopper:
         patience: int | list[int],
         min_delta: float,
         mode: Literal["min", "max"],
-        overide_epochs_to_inf: bool = False,
+        override_epochs_to_inf: bool = False,
         **kwargs,
     ):
         self.enabled = enabled
@@ -87,7 +87,7 @@ class EarlyStopper:
         self.current_patience = next(self.patience_gen)
         self.min_delta = min_delta
         self.mode = mode
-        self.overide_epochs_to_inf = overide_epochs_to_inf
+        self.override_epochs_to_inf = override_epochs_to_inf
 
         self.counter = 0
         self.best_metric_value = float("inf") if mode == "min" else float("-inf")

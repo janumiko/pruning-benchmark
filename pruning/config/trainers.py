@@ -13,7 +13,7 @@ class EarlyStopperConfig:
     patience: Any = MISSING
     mode: str = "max"
     min_delta: float = 0.0
-    overide_epochs_to_inf: bool = False
+    override_epochs_to_inf: bool = False
 
 
 @dataclass
