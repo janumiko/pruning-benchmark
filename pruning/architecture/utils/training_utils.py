@@ -1,10 +1,9 @@
 import random
 from typing import Generator, Literal
-from architecture.utils.pylogger import RankedLogger
 
+from architecture.utils.pylogger import RankedLogger
 import numpy as np
 import torch
-
 
 logger = RankedLogger(__name__, rank_zero_only=True)
 
@@ -79,7 +78,6 @@ class EarlyStopper:
         min_delta: float,
         mode: Literal["min", "max"],
         override_epochs_to_inf: bool = False,
-        **kwargs,
     ):
         self.enabled = enabled
         self.monitor = monitor

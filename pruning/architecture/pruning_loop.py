@@ -39,6 +39,7 @@ def start_pruning_experiment(cfg: MainConfig) -> None:
         cfg.trainer,
         train_dataloader=train_loader,
         val_dataloader=val_loader,
+        dataset_config=cfg.dataset,
         device=f"cuda:{rank}",
         metrics_logger=metrcis_logger,
         distributed=cfg.distributed.enabled,

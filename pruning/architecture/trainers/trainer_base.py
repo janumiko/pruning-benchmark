@@ -3,6 +3,7 @@ from architecture.utils.training_utils import EarlyStopper, RestoreCheckpoint
 import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
+from config.datasets import BaseDataset
 
 logger = RankedLogger(__name__, rank_zero_only=True)
 
@@ -12,6 +13,7 @@ class BaseTrainer:
         self,
         train_dataloader: DataLoader,
         val_dataloader: DataLoader,
+        dataset_config: BaseDataset,
         epochs: int,
         epochs_per_validation: int,
         early_stopper: EarlyStopper,
@@ -22,6 +24,7 @@ class BaseTrainer:
     ):
         self.train_dataloader = train_dataloader
         self.val_dataloader = val_dataloader
+        self.dataset_config = dataset_config
         self.epochs = epochs
         self.epochs_per_validation = epochs_per_validation
         self.early_stopper = early_stopper
@@ -30,12 +33,13 @@ class BaseTrainer:
         self.device = device
         self.distributed = distributed
 
-        self.model = None
-        self.optimizer = None
+        self._model = None
+        self._optimizer = None
         self.current_epoch = 0
+        self.total_epochs = 0
 
-        if self.early_stopper.override_epochs_to_inf:
-            self.epochs = float("inf")
+        if self.early_stopper.enabled and self.early_stopper.override_epochs_to_inf:
+            self.epochs = 10**6
 
     def _init_ddp(self, model):
         if self.distributed:
@@ -48,8 +52,8 @@ class BaseTrainer:
 
     def fit(self, model, optimizer):
         model = self._init_ddp(model)
-        self.model = model
-        self.optimizer = optimizer
+        self._model = model
+        self._optimizer = optimizer
 
         logger.info("Initial fit validation")
         resutlts = self.validation_loop()
@@ -64,17 +68,18 @@ class BaseTrainer:
                 logger.info(f"Validation after epoch {epoch}")
                 resutlts = self.validation_loop()
 
-                self.restore_checkpoint.update(self.model, resutlts)
+                self.restore_checkpoint.update(self._model, resutlts)
 
                 if self.early_stopper.check_stop(resutlts):
                     logger.info("Early stopping")
                     break
 
-        self.restore_checkpoint.restore_best(self.model)
+        self.total_epochs += self.current_epoch + 1
+        self.restore_checkpoint.restore_best(self._model)
 
     def validate(self, model):
         model = self._init_ddp(model)
-        self.model = model
+        self._model = model
 
         logger.info("Starting validation loop")
         self.validation_loop()
