@@ -1,7 +1,7 @@
 cd pruning
 
 python pruning_entry.py \
-    pruner=structured_magnitude \
+    pruner=structured \
     pruner.importance=norm_importance \
     pruner.pruning_scheduler=one_shot \
     pruner/pruning_config=resnet18_cifar/resnet18_cifar_test.yaml \
