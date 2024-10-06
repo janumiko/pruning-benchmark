@@ -21,8 +21,6 @@ class BasePruner:
         self.pruning_scheduler = pruning_scheduler
         self.pruning_ratio_dict, self.ignored_layers = pruning_utils.parse_prune_config(model, pruning_config)
         self.steps = steps
-        print(f"Pruning ratio dict: {self.pruning_ratio_dict}")
-        print(f"Ignored layers: {self.ignored_layers}")
 
     def step(self) -> None:
         raise NotImplementedError

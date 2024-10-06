@@ -7,12 +7,12 @@ import torch.nn.utils.prune as prune
 
 
 def parse_prune_config(
-    model: nn.Module, config: dict, parent_name: str = ""
+    model: nn.Module, model_config: dict, parent_name: str = ""
 ) -> tuple[Mapping[nn.Module, float], list[nn.Module]]:
     ignored_types = tuple(
-        LAYER_MAPPING[layer_name] for layer_name in config.get("ignored_layers", [])
+        LAYER_MAPPING[layer_name] for layer_name in model_config.get("ignored_layers", [])
     )
-    model_config: dict = config.get("model", {})
+    model_config: dict = model_config.get("model", {})
 
     layers: dict[nn.Module, float] = {}
     ignore_layers: set[nn.Module] = set()
@@ -45,7 +45,15 @@ def parse_prune_config(
                     process_layer(sub_layer, prune_rate)
                 recursive_parse(sub_layer, prune_info, full_layer_name)
 
+    # Parse the model config
     recursive_parse(model, model_config, parent_name)
+
+    # Ignore rest of the layers
+    for module in model.modules():
+        print(type(module))
+        if isinstance(module, ignored_types):
+            print("added")
+            ignore_layers.add(module)
 
     return layers, list(ignore_layers)
 
