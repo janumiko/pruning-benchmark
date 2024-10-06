@@ -8,7 +8,7 @@ from torch import nn
 import torch_pruning as tp
 
 
-class StructuredMagnitudePruner(BasePruner):
+class StructuredPruner(BasePruner):
     def __init__(
         self,
         model: nn.Module,
@@ -17,14 +17,12 @@ class StructuredMagnitudePruner(BasePruner):
         example_inputs: torch.Tensor,
         pruning_scheduler: BasePruningSchedule,
         importance: Callable,
-        ignored_layers: Iterable[nn.Module] = None,
         global_pruning: bool = False,
     ) -> None:
         super().__init__(
             model=model,
             pruning_config=pruning_config,
             example_inputs=example_inputs,
-            ignored_layers=ignored_layers,
             pruning_scheduler=pruning_scheduler,
             steps=steps,
         )

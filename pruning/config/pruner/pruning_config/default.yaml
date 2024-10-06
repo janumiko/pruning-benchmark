@@ -1,3 +1,4 @@
-prune_rate: 0.5
-linear:
-  prune_rate: 0.0
+model:
+  prune_rate: 0.5
+  linear:
+    prune_rate: 0.0
