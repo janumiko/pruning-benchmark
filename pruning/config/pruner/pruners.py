@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
-from architecture.pruners.structured_magnitude_pruner import StructuredMagnitudePruner
+from architecture.pruners.structured_pruner import StructuredPruner
+from architecture.pruners.unstructured_pruner import UnstructuredPruner
 from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
 from torch_pruning.pruner.importance import GroupNormImportance
@@ -28,15 +29,20 @@ class PrunerConfig:
 
 
 @dataclass
-class StructuredMagnitudePrunerConfig(PrunerConfig):
-    _target_: str = (
-        f"{StructuredMagnitudePruner.__module__}.{StructuredMagnitudePruner.__qualname__}"
-    )
+class StructuredPrunerConfig(PrunerConfig):
+    _target_: str = f"{StructuredPruner.__module__}.{StructuredPruner.__qualname__}"
     importance: BaseImportanceConfig = MISSING
+    global_pruning: bool = False
+
+
+@dataclass
+class UnstructuredPrunerConfig(PrunerConfig):
+    _target_: str = f"{UnstructuredPruner.__module__}.{UnstructuredPruner.__qualname__}"
+    pruning_ratio: float = MISSING
+    global_pruning: bool = True
 
 
 config_store = ConfigStore.instance()
 config_store.store(group="pruner.importance", name="norm_importance", node=NormImportanceConfig)
-config_store.store(
-    group="pruner", name="structured_magnitude", node=StructuredMagnitudePrunerConfig
-)
+config_store.store(group="pruner", name="structured", node=StructuredPrunerConfig)
+config_store.store(group="pruner", name="unstructured", node=UnstructuredPrunerConfig)

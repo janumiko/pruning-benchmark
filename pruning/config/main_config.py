@@ -7,7 +7,7 @@ from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
 
 from .datasets import BaseDataset
-from .optimizers import BaseOptimizer
+from .optimizers import BaseOptimizerConfig
 from .pruner.pruners import PrunerConfig
 from .trainers import TrainerConfig
 
@@ -61,7 +61,7 @@ class MainConfig:
     model_pruning: dict = field(default_factory=dict)
 
     model: ModelConfig = field(default_factory=ModelConfig)
-    optimizer: BaseOptimizer = MISSING
+    optimizer: BaseOptimizerConfig = MISSING
     dataset: BaseDataset = MISSING
 
     train_dataloader: Dataloaders = field(default_factory=Dataloaders)
