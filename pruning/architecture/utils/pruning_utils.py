@@ -7,12 +7,12 @@ import torch.nn.utils.prune as prune
 
 
 def parse_prune_config(
-    model: nn.Module, model_config: dict, parent_name: str = ""
+    model: nn.Module, config: dict, parent_name: str = ""
 ) -> tuple[Mapping[nn.Module, float], list[nn.Module]]:
     ignored_types = tuple(
-        LAYER_MAPPING[layer_name] for layer_name in model_config.get("ignored_layers", [])
+        LAYER_MAPPING[layer_name] for layer_name in config.get("ignored_layers", [])
     )
-    model_config: dict = model_config.get("model", {})
+    model_config: dict = config.get("model", {})
 
     layers: dict[nn.Module, float] = {}
     ignore_layers: set[nn.Module] = set()
