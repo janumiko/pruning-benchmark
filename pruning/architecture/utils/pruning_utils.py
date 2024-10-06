@@ -50,9 +50,7 @@ def parse_prune_config(
 
     # Ignore rest of the layers
     for module in model.modules():
-        print(type(module))
         if isinstance(module, ignored_types):
-            print("added")
             ignore_layers.add(module)
 
     return layers, list(ignore_layers)
