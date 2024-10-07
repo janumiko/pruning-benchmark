@@ -36,7 +36,9 @@ def parse_prune_config(
 
             full_layer_name = f"{parent_name}.{layer_name}" if parent_name else layer_name
             sub_layer = (
-                layer[layer_name] if isinstance(layer_name, int) else getattr(layer, layer_name, None)
+                layer[layer_name]
+                if isinstance(layer_name, int)
+                else getattr(layer, layer_name, None)
             )
 
             if isinstance(prune_info, Mapping) and sub_layer is not None:
@@ -147,3 +149,33 @@ def global_unstructured_modified(parameters, pruning_method, importance_scores=N
 
         # Increment the pointer to continue slicing the final_mask
         pointer += num_param
+
+
+def calculate_pruning_ratio(model: nn.Module) -> float:
+    """
+    Calculates the pruning precentage for the pruned parameters and the model.
+
+    Args:
+        model (nn.Module): The model to calculate pruning for.
+
+    Returns:
+        Tuple[float, float]: The pruning precentage for the pruned parameters and the model.
+    """
+    pruned_parameters = 0
+    total_parameters = 0
+    total_model_parameters = sum(p.nelement() for p in model.parameters() if p.requires_grad)
+
+    named_buffer = dict(model.named_buffers())
+
+    for name, param in model.named_parameters():
+        if not name.endswith("_orig"):
+            continue
+
+        param = named_buffer[name.replace("_orig", "_mask")]
+        total_parameters += param.nelement()
+        pruned_parameters += torch.sum(param == 0).item()
+
+    pruned = pruned_parameters / total_parameters * 100
+    model_pruned = pruned_parameters / total_model_parameters * 100
+
+    return pruned, model_pruned

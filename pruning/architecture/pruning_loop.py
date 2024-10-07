@@ -82,6 +82,7 @@ def pruning_loop(
 @distributed_utils.rank_zero_only
 def prune_model(pruner: BasePruner, checkpoint_path: str) -> None:
     pruner.step()
+    logger.info(pruner.statistics())
     save_model(pruner.model, checkpoint_path)
 
 

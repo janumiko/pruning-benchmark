@@ -29,18 +29,20 @@ class UnstructuredPruner(BasePruner):
             example_inputs=example_inputs,
             pruning_scheduler=pruning_scheduler,
         )
-        self.pruning_ratio_dict, self.ignored_layers = pruning_utils.parse_prune_config(model, pruning_config)
+        self.pruning_ratio_dict, self.ignored_layers = pruning_utils.parse_prune_config(
+            model, pruning_config
+        )
         self.pruning_ratio = pruning_ratio
         self.current_step = 0
 
-        assert global_pruning, "Global pruning is the only supported method for unstructured pruning"
+        assert (
+            global_pruning
+        ), "Global pruning is the only supported method for unstructured pruning"
 
         if not self.pruning_ratio_dict:
             self.pruning_ratio_dict = {model: pruning_ratio}
 
-        self._pruning_thresholds = self.pruning_scheduler(
-            pruning_ratio, self.steps
-        )
+        self._pruning_thresholds = self.pruning_scheduler(pruning_ratio, self.steps)
 
         logger.info(f"Pruning thresholds: {self._pruning_thresholds}")
         logger.info(f"Ignored layers: {self.ignored_layers}")
@@ -98,3 +100,8 @@ class UnstructuredPruner(BasePruner):
     def remove(self) -> None:
         for module, name in self._params_to_prune:
             prune.remove(module, name)
+
+    def statistics(self) -> dict[str, float]:
+        parameters_sparsity, model_sparsity = pruning_utils.calculate_pruning_ratio(self.model)
+
+        return {"model_sparsity": model_sparsity, "pruned_params_sparsity": parameters_sparsity}
