@@ -1,4 +1,4 @@
-from typing import Any, Callable, Iterable
+from typing import Any, Callable
 
 from architecture.pruners.pruner_base import BasePruner
 from architecture.pruners.schedulers import BasePruningSchedule
@@ -6,6 +6,7 @@ import numpy as np
 import torch
 from torch import nn
 import torch_pruning as tp
+from architecture.utils import pruning_utils
 
 
 class StructuredPruner(BasePruner):
@@ -26,6 +27,8 @@ class StructuredPruner(BasePruner):
             pruning_scheduler=pruning_scheduler,
             steps=steps,
         )
+        self.pruning_ratio_dict, self.ignored_layers = pruning_utils.parse_prune_config(model, pruning_config)
+
         self._pruner = tp.MetaPruner(
             model=self.model,
             example_inputs=self.example_inputs,

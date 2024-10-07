@@ -46,7 +46,7 @@ class MainConfig:
             {"trainer": "_"},
             {"pruner": "_"},
             {"pruner.pruning_scheduler": "_"},
-            {"pruner.importance": "_"},
+            {"pruner.importance": None},
             {"pruner/pruning_config": "default.yaml"},
         ]
     )

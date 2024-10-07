@@ -1,7 +1,6 @@
-from typing import Any, Iterable
+from typing import Any
 
 from architecture.pruners.schedulers import BasePruningSchedule
-from architecture.utils import pruning_utils
 import torch
 from torch import nn
 
@@ -19,7 +18,6 @@ class BasePruner:
         self.pruning_config = pruning_config
         self.example_inputs = example_inputs
         self.pruning_scheduler = pruning_scheduler
-        self.pruning_ratio_dict, self.ignored_layers = pruning_utils.parse_prune_config(model, pruning_config)
         self.steps = steps
 
     def step(self) -> None:

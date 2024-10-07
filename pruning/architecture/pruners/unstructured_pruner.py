@@ -1,4 +1,4 @@
-from typing import Generator, Iterable
+from typing import Generator
 
 from architecture.pruners.pruner_base import BasePruner
 from architecture.pruners.schedulers import BasePruningSchedule
@@ -29,10 +29,14 @@ class UnstructuredPruner(BasePruner):
             example_inputs=example_inputs,
             pruning_scheduler=pruning_scheduler,
         )
+        self.pruning_ratio_dict, self.ignored_layers = pruning_utils.parse_prune_config(model, pruning_config)
         self.pruning_ratio = pruning_ratio
         self.current_step = 0
 
         assert global_pruning, "Global pruning is the only supported method for unstructured pruning"
+
+        if not self.pruning_ratio_dict:
+            self.pruning_ratio_dict = {model: pruning_ratio}
 
         self._pruning_thresholds = self.pruning_scheduler(
             pruning_ratio, self.steps

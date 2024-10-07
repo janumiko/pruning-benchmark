@@ -1,0 +1,6 @@
+ignored_layers:
+  - Conv2d
+
+model:
+  linear:
+    prune_rate: 0.0

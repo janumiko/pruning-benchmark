@@ -1,10 +1,10 @@
 cd pruning
 
 python pruning_entry.py \
-    pruner=structured \
-    pruner.importance=norm_importance \
+    pruner=unstructured \
     pruner.pruning_scheduler=one_shot \
-    pruner/pruning_config=resnet18_cifar/resnet18_cifar_structured_test.yaml \
+    pruner.pruning_ratio=0.5 \
+    pruner/pruning_config=resnet18_cifar/resnet18_cifar_unstructured_test.yaml \
     pruner.steps=1 \
     trainer=classification \
     trainer.early_stopper.enabled=True \
