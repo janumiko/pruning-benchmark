@@ -97,7 +97,6 @@ class FewShotPruningSchedule(BasePruningSchedule):
         output_steps = [self.one_shot_step]
         initial_step = step = 1 - (1 - (target_sparsity - self.one_shot_step)) ** (1 / steps)
 
-        output_steps = []
         for _ in range(steps):
             step = round(step, self.rounding_precision)
             output_steps.append(step)
