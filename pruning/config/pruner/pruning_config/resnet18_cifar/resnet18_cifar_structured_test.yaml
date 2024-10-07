@@ -1,5 +1,5 @@
 ignored_layers:
-  - Conv2d
+  - Linear
 
 model:
   conv1:
@@ -11,6 +11,4 @@ model:
   layer3:
     prune_rate: 0.4
   layer4:
-    prune_rate: 0.3
-  linear:
     prune_rate: 0.0

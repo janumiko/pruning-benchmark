@@ -7,6 +7,9 @@ import torch
 from torch import nn
 import torch_pruning as tp
 from architecture.utils import pruning_utils
+from architecture.utils.pylogger import RankedLogger
+
+logger = RankedLogger(__name__, rank_zero_only=True)
 
 
 class StructuredPruner(BasePruner):
@@ -27,7 +30,9 @@ class StructuredPruner(BasePruner):
             pruning_scheduler=pruning_scheduler,
             steps=steps,
         )
-        self.pruning_ratio_dict, self.ignored_layers = pruning_utils.parse_prune_config(model, pruning_config)
+        self.pruning_ratio_dict, self.ignored_layers = pruning_utils.parse_prune_config(
+            model, pruning_config
+        )
 
         self._pruner = tp.MetaPruner(
             model=self.model,
@@ -39,6 +44,8 @@ class StructuredPruner(BasePruner):
             iterative_steps=self.steps,
             iterative_pruning_ratio_scheduler=self._scheluder,
         )
+
+        logger.info(f"Ignored layers: {self.ignored_layers}")
 
         self.base_statistics = self.statistics()
 
