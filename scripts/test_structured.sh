@@ -1,6 +1,7 @@
 cd pruning
 
 python pruning_entry.py \
+    wandb=test.yaml \
     pruner=structured \
     pruner.importance=norm_importance \
     pruner.pruning_scheduler=one_shot \
