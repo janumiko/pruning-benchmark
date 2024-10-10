@@ -1,5 +1,5 @@
 ignored_layers:
-  - Conv2d
+  - BatchNorm2d
 
 model:
   linear:
