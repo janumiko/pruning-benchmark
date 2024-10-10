@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from config.constants import (
     CIFAR10_MEAN,
     CIFAR10_STD,
@@ -195,24 +197,25 @@ def get_dataset(
     Returns:
         tuple[torch.utils.data.Dataset, torch.utils.data.Dataset]: A tuple containing the train and test datasets.
     """
+    path = Path(cfg.paths.data_dir).joinpath(cfg.dataset.name.lower())
     match cfg.dataset.name.lower():
         case "cifar10":
             return get_cifar10(
-                cfg.dataset.path,
+                path,
                 cfg.dataset.download,
                 resize_value=cfg.dataset.resize_value,
                 crop_value=cfg.dataset.crop_value,
             )
         case "cifar100":
             return get_cifar100(
-                cfg.dataset.path,
+                path,
                 cfg.dataset.download,
                 resize_value=cfg.dataset.resize_value,
                 crop_value=cfg.dataset.crop_value,
             )
         case "imagenet1k":
             return get_imagenet1k(
-                cfg.dataset.path,
+                path,
                 resize_value=cfg.dataset.resize_value,
                 crop_value=cfg.dataset.crop_value,
             )
