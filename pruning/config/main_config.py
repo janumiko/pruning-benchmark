@@ -3,6 +3,7 @@ import random
 from typing import Any, Optional
 import uuid
 
+from architecture.utils.metrics import WandbMetricLogger
 from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
 
@@ -19,6 +20,17 @@ class Dataloaders:
     pin_memory: bool = True
     persistent_workers: bool = True
     drop_last: bool = False
+
+
+@dataclass
+class WandbConfig:
+    _target_: str = f"{WandbMetricLogger.__module__}.{WandbMetricLogger.__name__}"
+    project: str = MISSING
+    mode: str = "disabled"
+    entity: Optional[str] = None
+    tags: list[str] = field(default_factory=list)
+    group: Optional[str] = None
+    job_type: Optional[str] = None
 
 
 @dataclass
@@ -41,6 +53,7 @@ class MainConfig:
             "_self_",
             {"paths": "default.yaml"},
             {"hydra": "default.yaml"},
+            {"wandb": "default.yaml"},
             {"optimizer": "_"},
             {"dataset": "_"},
             {"trainer": "_"},
@@ -53,7 +66,7 @@ class MainConfig:
     paths: dict = field(default_factory=dict)
     seed: int = random.randint(0, 1e6)
     run_id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    group_id: Optional[str] = None
+    wandb: WandbConfig = field(default_factory=WandbConfig)
 
     distributed: DistributedConfig = field(default_factory=DistributedConfig)
     trainer: TrainerConfig = MISSING

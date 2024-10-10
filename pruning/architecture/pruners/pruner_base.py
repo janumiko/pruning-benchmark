@@ -3,6 +3,7 @@ from typing import Any
 from architecture.pruners.schedulers import BasePruningSchedule
 import torch
 from torch import nn
+from architecture.utils.metrics import BaseMetricLogger
 
 
 class BasePruner:

@@ -46,7 +46,7 @@ class RestoreCheckpoint:
             update = metric_value > self.best_metric_value + self.min_delta
 
         if update:
-            logger.info(f"Updating best model with metric {self.monitor}: {metric_value}")
+            logger.info(f"Updating best model with metric {self.monitor}: {round(metric_value, 4)}")
             self.best_metric_value = metric_value
             self._state_dict = model.state_dict()
 
@@ -113,7 +113,7 @@ class EarlyStopper:
             stop = metric_value > self.best_metric_value + self.min_delta
 
         if stop:
-            logger.info(f"Improvement in {self.monitor}: {metric_value}")
+            logger.info(f"Improvement in {self.monitor}: {round(metric_value, 4)}")
             self.best_metric_value = metric_value
             self.counter = 0
         else:

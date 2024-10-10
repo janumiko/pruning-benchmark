@@ -11,6 +11,9 @@ import torch
 from torch import nn
 import torch.distributed as dist
 from architecture.pruners.pruner_base import BasePruner
+from architecture.utils.metrics import BaseMetricLogger
+from omegaconf import OmegaConf
+
 
 logger = RankedLogger(__name__, rank_zero_only=True)
 
@@ -24,7 +27,6 @@ def start_pruning_experiment(cfg: MainConfig) -> None:
     """
     # set the seed
     training_utils.set_reproducibility(cfg.seed)
-    metrcis_logger = ...
 
     register_models()
     rank = distributed_utils.get_rank()
@@ -32,9 +34,15 @@ def start_pruning_experiment(cfg: MainConfig) -> None:
     model = model.to(f"cuda:{rank}")
 
     train_loader, val_loader = get_dataloaders(cfg)
-    example_inputs = next(iter(train_loader))[0]
+    example_inputs: torch.Tensor = next(iter(train_loader))[0]
     example_inputs = example_inputs.to(f"cuda:{rank}")
 
+    metrcis_logger: BaseMetricLogger = hydra.utils.instantiate(
+        cfg.wandb,
+        main_config=OmegaConf.to_container(cfg),
+        log_path=cfg.paths.output_dir,
+        _recursive_=False,
+    )
     trainer = hydra.utils.instantiate(
         cfg.trainer,
         train_dataloader=train_loader,
@@ -50,33 +58,40 @@ def start_pruning_experiment(cfg: MainConfig) -> None:
         example_inputs=example_inputs,
     )
 
-    pruning_loop(cfg=cfg, rank=rank, model=model, trainer=trainer, pruner=pruner)
+    pruning_loop(
+        cfg=cfg, model=model, trainer=trainer, pruner=pruner, metrics_logger=metrcis_logger
+    )
 
 
 def pruning_loop(
-    cfg: MainConfig, rank: int, model: nn.Module, trainer: BaseTrainer, pruner: BasePruner
-):
+    cfg: MainConfig,
+    model: nn.Module,
+    trainer: BaseTrainer,
+    pruner: BasePruner,
+    metrics_logger: BaseMetricLogger,
+) -> None:
     checkpoint_path = Path(f"{cfg.paths.output_dir}/model_checkpoint.pth")
-    # validate the model before pruning
-    trainer.validate(model)
+    base_metrics = trainer.validate(model)
+    base_metrics = {f"base_{k}": v for k, v in base_metrics.items()}
+    base_metrics["base_nparams"] = sum(p.numel() for p in model.parameters())
+    metrics_logger.summary(base_metrics)
 
     for step in range(pruner.steps):
         logger.info(f"Pruning step {step+1}/{pruner.steps}")
-        # for loop
-        # prune the model
-        # save the model
-        prune_model(pruner, checkpoint_path)
 
-        # if distributed
-        # load the model for each process
+        prune_model(pruner, checkpoint_path)
+        metrics_logger.log(pruner.statistics(), commit=False)
+
         if cfg.distributed.enabled:
             model = torch.load(checkpoint_path)
             dist.barrier()
 
-        # create optimizer
         optimizer = hydra.utils.instantiate(cfg.optimizer, model.parameters())
-        # fit the model
         trainer.fit(model, optimizer)
+
+    final_metrics = trainer.validate(model)
+    logger.info(f"Final metrics: {final_metrics}")
+    metrics_logger.summary(final_metrics)
 
 
 @distributed_utils.rank_zero_only

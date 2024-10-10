@@ -4,6 +4,7 @@ import torch
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 from config.datasets import BaseDataset
+from architecture.utils.metrics import BaseMetricLogger
 
 logger = RankedLogger(__name__, rank_zero_only=True)
 
@@ -19,7 +20,7 @@ class BaseTrainer:
         early_stopper: EarlyStopper,
         restore_checkpoint: RestoreCheckpoint,
         device: torch.device,
-        metrics_logger=None,
+        metrics_logger: BaseMetricLogger,
         distributed: bool = False,
     ):
         self.train_dataloader = train_dataloader
@@ -68,6 +69,7 @@ class BaseTrainer:
                 logger.info(f"Validation after epoch {epoch}")
                 resutlts = self.validation_loop()
 
+                self.metrics_logger.log(resutlts)
                 self.restore_checkpoint.update(self._model, resutlts)
 
                 if self.early_stopper.check_stop(resutlts):
@@ -77,12 +79,12 @@ class BaseTrainer:
         self.total_epochs += self.current_epoch + 1
         self.restore_checkpoint.restore_best(self._model)
 
-    def validate(self, model):
+    def validate(self, model) -> dict[str, float]:
         model = self._init_ddp(model)
         self._model = model
 
         logger.info("Starting validation loop")
-        self.validation_loop()
+        return self.validation_loop()
 
     def train_loop(self):
         raise NotImplementedError

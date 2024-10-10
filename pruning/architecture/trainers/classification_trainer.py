@@ -7,6 +7,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torchmetrics import Accuracy
+from architecture.utils.metrics import BaseMetricLogger
 
 logger = RankedLogger(__name__, rank_zero_only=True)
 
@@ -22,7 +23,7 @@ class ClassificationTrainer(BaseTrainer):
         early_stopper: EarlyStopper,
         restore_checkpoint: RestoreCheckpoint,
         device: torch.device,
-        metrics_logger=None,
+        metrics_logger: BaseMetricLogger,
         distributed: bool = False,
     ):
         super().__init__(
@@ -41,7 +42,9 @@ class ClassificationTrainer(BaseTrainer):
 
         # Metrics
         self.eval_loss = Loss().to(self.device)
-        self.eval_accuracy = Accuracy(task="multiclass", num_classes=self.dataset_config.num_classes).to(self.device)
+        self.eval_accuracy = Accuracy(
+            task="multiclass", num_classes=self.dataset_config.num_classes
+        ).to(self.device)
 
     def fit(self, model, optimizer):
         super().fit(model, optimizer)
@@ -75,6 +78,5 @@ class ClassificationTrainer(BaseTrainer):
 
         val_loss = self.eval_loss.compute()
         accuracy = self.eval_accuracy.compute()
-        print(f"Validation loss: {val_loss:.4f}, Accuracy: {(accuracy*100):.2f}%")
 
-        return {"loss": val_loss, "accuracy": accuracy}
+        return {"loss": val_loss.item(), "accuracy": accuracy.item()}
