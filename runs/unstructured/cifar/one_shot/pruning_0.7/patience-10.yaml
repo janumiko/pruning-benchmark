@@ -1,0 +1,43 @@
+trainer:
+  early_stopper:
+    _target_: architecture.utils.training_utils.EarlyStopper
+    enabled: true
+    monitor: accuracy
+    patience: 10
+    mode: max
+    min_delta: 0.0001
+    override_epochs_to_inf: true
+  restore_checkpoint:
+    _target_: architecture.utils.training_utils.RestoreCheckpoint
+    enabled: true
+    monitor: accuracy
+    mode: max
+    min_delta: 0.0001
+pruner:
+  _target_: architecture.pruners.unstructured_pruner.UnstructuredPruner
+  pruning_scheduler:
+    _target_: architecture.pruners.schedulers.OneShotPruningSchedule
+    rounding_precision: 8
+  steps: 1
+  pruning_config:
+    ignored_layers:
+    - BatchNorm2d
+  pruning_ratio: 0.7
+  global_pruning: true
+optimizer:
+  _target_: torch.optim.sgd.SGD
+  lr: 0.001
+  weight_decay: 0.0005
+  momentum: 0.9
+train_dataloader:
+  batch_size: 256
+  num_workers: 8
+  pin_memory: true
+  persistent_workers: true
+  drop_last: true
+validation_dataloader:
+  batch_size: 256
+  num_workers: 8
+  pin_memory: true
+  persistent_workers: true
+  drop_last: false

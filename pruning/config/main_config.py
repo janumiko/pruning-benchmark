@@ -71,7 +71,6 @@ class MainConfig:
     distributed: DistributedConfig = field(default_factory=DistributedConfig)
     trainer: TrainerConfig = MISSING
     pruner: PrunerConfig = MISSING
-    model_pruning: dict = field(default_factory=dict)
 
     model: ModelConfig = field(default_factory=ModelConfig)
     optimizer: BaseOptimizerConfig = MISSING
