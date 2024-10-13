@@ -14,7 +14,7 @@ class EarlyStopperConfig:
     monitor: str = "accuracy"
     patience: Any = MISSING
     mode: str = "max"
-    min_delta: float = 1e-4
+    min_delta: float = 0.0
     override_epochs_to_inf: bool = False
 
 
@@ -24,7 +24,7 @@ class RestoreCheckpointConfig:
     enabled: bool = True
     monitor: str = "accuracy"
     mode: str = "max"
-    min_delta: float = 1e-4
+    min_delta: float = 0.0
 
 
 @dataclass
