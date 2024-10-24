@@ -90,6 +90,7 @@ def pruning_loop(
         trainer.fit(model, optimizer)
 
     final_metrics = trainer.validate(model)
+    final_metrics["total_epochs"] = trainer.total_epochs
     logger.info(f"Final metrics: {final_metrics}")
     metrics_logger.summary(final_metrics)
 
