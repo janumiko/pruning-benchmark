@@ -14,7 +14,7 @@ logger = RankedLogger(__name__, rank_zero_only=True)
 def start_process(rank: int, cfg: MainConfig) -> None:
     init_process_group(
         rank=rank,
-        world_size=cfg.distributed.gpu,
+        world_size=cfg.distributed.world_size,
         init_method=cfg.distributed.init_method,
     )
     start_pruning_experiment(cfg)
@@ -35,7 +35,7 @@ def main(cfg: MainConfig) -> None:
         mp.spawn(
             start_process,
             args=(cfg,),
-            nprocs=cfg.distributed.gpu,
+            nprocs=cfg.distributed.world_size,
             join=True,
         )
     else:
