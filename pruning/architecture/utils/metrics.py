@@ -1,4 +1,4 @@
-from typing import Literal, Sequence
+from typing import Literal, Sequence, Mapping
 
 from architecture.utils import distributed_utils
 from architecture.utils.pylogger import RankedLogger
@@ -6,6 +6,8 @@ import torch
 from torchmetrics import Metric
 import wandb
 from wandb.sdk.wandb_run import Run
+from omegaconf import OmegaConf
+
 
 logger = RankedLogger(__name__, rank_zero_only=True)
 
@@ -32,7 +34,7 @@ class WandbMetricLogger(BaseMetricLogger):
     def __init__(
         self,
         mode: Literal["disabled", "offline", "online"] = "disabled",
-        main_config: dict | None = None,
+        main_config: Mapping | None = None,
         project: str | None = None,
         entity: str | None = None,
         run_name: str | None = None,
@@ -46,7 +48,7 @@ class WandbMetricLogger(BaseMetricLogger):
         self.entity = entity
         self.run_name = run_name
         self.tags = tags
-        self.main_config = main_config
+        self.main_config = OmegaConf.to_container(main_config)
         self.group = group
         self.job_type = job_type
         self.log_path = log_path
@@ -65,6 +67,7 @@ class WandbMetricLogger(BaseMetricLogger):
             group=self.group,
             job_type=self.job_type,
             dir=self.log_path,
+            config=self.main_config,
         )
 
     @distributed_utils.rank_zero_only

@@ -39,7 +39,7 @@ def start_pruning_experiment(cfg: MainConfig) -> None:
 
     metrcis_logger: BaseMetricLogger = hydra.utils.instantiate(
         cfg.wandb,
-        main_config=OmegaConf.to_container(cfg),
+        main_config=cfg,
         log_path=cfg.paths.output_dir,
         _recursive_=False,
     )
@@ -83,8 +83,8 @@ def pruning_loop(
         metrics_logger.log(pruner.statistics(), commit=False)
 
         if cfg.distributed.enabled:
-            model = torch.load(checkpoint_path)
             dist.barrier()
+            model = torch.load(checkpoint_path)
 
         optimizer = hydra.utils.instantiate(cfg.optimizer, model.parameters())
         trainer.fit(model, optimizer)

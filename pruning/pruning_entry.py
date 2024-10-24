@@ -27,6 +27,7 @@ def main(cfg: MainConfig) -> None:
     Args:
         cfg (MainConfig): Hydra config object with all the settings. (Located in config/main_config.py)
     """
+    OmegaConf.resolve(cfg)
     logger.info(OmegaConf.to_yaml(cfg))
     logger.info(f"Hydra output directory: {cfg.paths.output_dir}")
 
