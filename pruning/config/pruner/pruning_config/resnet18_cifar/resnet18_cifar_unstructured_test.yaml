@@ -1,6 +1,2 @@
 ignored_layers:
   - BatchNorm2d
-
-model:
-  linear:
-    prune_rate: 0.0

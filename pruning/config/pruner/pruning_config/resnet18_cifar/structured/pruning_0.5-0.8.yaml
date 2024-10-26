@@ -1,13 +1,13 @@
 model:
   conv1:
-    prune_rate: 0.4
-  layer1:
-    prune_rate: 0.4
-  layer2:
     prune_rate: 0.5
-  layer3:
+  layer1:
+    prune_rate: 0.5
+  layer2:
     prune_rate: 0.6
-  layer4:
+  layer3:
     prune_rate: 0.7
+  layer4:
+    prune_rate: 0.8
   linear:
     prune_rate: 0.0
