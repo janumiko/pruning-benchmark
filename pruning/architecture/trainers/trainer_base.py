@@ -57,9 +57,9 @@ class BaseTrainer:
         self._optimizer = optimizer
 
         logger.info("Initial fit validation")
-        resutlts = self.validation_loop()
-        self.restore_checkpoint.reset(init_results=resutlts)
-        self.early_stopper.reset(init_results=resutlts, next_patience=True)
+        results = self.validation_loop()
+        self.restore_checkpoint.reset(init_results=results)
+        self.early_stopper.reset(init_results=results, next_patience=True)
 
         logger.info("Starting training loop")
         for epoch in range(self.epochs):
@@ -67,12 +67,13 @@ class BaseTrainer:
             self.train_loop()
             if (epoch + 1) % self.epochs_per_validation == 0:
                 logger.info(f"Validation after epoch {epoch}")
-                resutlts = self.validation_loop()
+                results = self.validation_loop()
+                results["epoch"] = epoch + 1
 
-                self.metrics_logger.log(resutlts)
-                self.restore_checkpoint.update(self._model, resutlts)
+                self.metrics_logger.log(results)
+                self.restore_checkpoint.update(self._model, results)
 
-                if self.early_stopper.check_stop(resutlts):
+                if self.early_stopper.check_stop(results):
                     logger.info("Early stopping")
                     break
 

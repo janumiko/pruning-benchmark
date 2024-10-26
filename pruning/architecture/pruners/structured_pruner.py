@@ -66,4 +66,4 @@ class StructuredPruner(BasePruner):
         x = [0] + np.cumsum(
             self.pruning_scheduler(target_sparsity=pruning_ratio, steps=steps)
         ).tolist()
-        return x
+        return [round(i, 5) for i in x]
