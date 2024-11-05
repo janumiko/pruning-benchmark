@@ -4,7 +4,7 @@
 root_dir: "."
 
 # path to data directory
-data_dir: /net/pr2/projects/plgrid/plggpruning/datasets/
+data_dir: ${oc.env:SCRATCH}/pruning/datasets/
 
 # path to logging directory
 log_dir: ${oc.env:SCRATCH}/pruning/logs/
