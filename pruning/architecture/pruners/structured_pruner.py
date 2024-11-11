@@ -34,6 +34,8 @@ class StructuredPruner(BasePruner):
             model, pruning_config
         )
 
+        self.importance = importance
+        self.accumulate_grad = hasattr(importance, "accumulate_grad")
         self._pruner = tp.MetaPruner(
             model=self.model,
             example_inputs=self.example_inputs,

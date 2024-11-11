@@ -80,3 +80,18 @@ class ClassificationTrainer(BaseTrainer):
         accuracy = self.eval_accuracy.compute()
 
         return {"loss": val_loss.item(), "accuracy": accuracy.item()}
+
+    def calculate_importance(self, model, importance_fn):
+        # TODO: add support for ddp (importance grads are not reduced), mb move logic to importance class
+        model = self._init_ddp(model)
+
+        importance_fn.zero_grad()
+        model.eval()
+
+        for data, target in self.train_dataloader:
+            data, target = data.to(self.device), target.to(self.device)
+            output = model(data)
+            loss = self.loss_fn(output, target)
+            model.zero_grad()
+            loss.backward(retain_graph=True)
+            importance_fn.accumulate_grad(model)

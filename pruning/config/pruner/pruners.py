@@ -4,7 +4,7 @@ from architecture.pruners.structured_pruner import StructuredPruner
 from architecture.pruners.unstructured_pruner import UnstructuredPruner
 from hydra.core.config_store import ConfigStore
 from omegaconf import MISSING
-from torch_pruning.pruner.importance import GroupNormImportance
+from torch_pruning.pruner.importance import GroupNormImportance, GroupHessianImportance
 
 from .schedulers import BasePruningScheduleConfig
 
@@ -18,6 +18,14 @@ class BaseImportanceConfig:
 class NormImportanceConfig(BaseImportanceConfig):
     _target_: str = f"{GroupNormImportance.__module__}.{GroupNormImportance.__qualname__}"
     p: int = 2
+
+
+@dataclass
+class HessianImportanceConfig(BaseImportanceConfig):
+    _target_: str = f"{GroupHessianImportance.__module__}.{GroupHessianImportance.__qualname__}"
+    group_reduction: str = "mean"
+    normalizer: str = "mean"
+    bias = False
 
 
 @dataclass
@@ -44,5 +52,6 @@ class UnstructuredPrunerConfig(PrunerConfig):
 
 config_store = ConfigStore.instance()
 config_store.store(group="pruner.importance", name="norm_importance", node=NormImportanceConfig)
+config_store.store(group="pruner.importance", name="hessian_importance", node=HessianImportanceConfig)
 config_store.store(group="pruner", name="structured", node=StructuredPrunerConfig)
 config_store.store(group="pruner", name="unstructured", node=UnstructuredPrunerConfig)

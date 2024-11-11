@@ -87,6 +87,9 @@ class BaseTrainer:
         logger.info("Starting validation loop")
         return self.validation_loop()
 
+    def calculate_importance(self, model, importance_fn):
+        raise NotImplementedError
+
     def train_loop(self):
         raise NotImplementedError
 

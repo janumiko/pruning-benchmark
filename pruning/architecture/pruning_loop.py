@@ -79,6 +79,10 @@ def pruning_loop(
     for step in range(pruner.steps):
         logger.info(f"Pruning step {step+1}/{pruner.steps}")
 
+        if hasattr(pruner, "accumulate_grad") and pruner.accumulate_grad:
+            logger.info("Accumulating gradients")
+            trainer.calculate_importance(model, pruner.importance)
+
         prune_model(pruner, checkpoint_path)
         metrics_logger.log(pruner.statistics(), commit=False)
 
@@ -88,6 +92,8 @@ def pruning_loop(
 
         optimizer = hydra.utils.instantiate(cfg.optimizer, model.parameters())
         trainer.fit(model, optimizer)
+
+    checkpoint_path.unlink()
 
     final_metrics = trainer.validate(model)
     final_metrics["total_epochs"] = trainer.total_epochs
